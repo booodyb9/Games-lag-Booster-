@@ -495,6 +495,37 @@ fun MainAppRoot(
                             Spacer(modifier = Modifier.height(4.dp))
                         }
 
+                        // Direct Entry: خوادم الألعاب واختبار Ping (8 مواقع)
+                        val isNetworkTabActive = currentTab == ScreenTab.TOOLS && selectedToolIndex == 1
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isNetworkTabActive) DeepGlassNavy else Color.Transparent)
+                                .clickable {
+                                    currentTab = ScreenTab.TOOLS
+                                    selectedToolIndex = 1
+                                    coroutineScope.launch { drawerState.close() }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Wifi,
+                                contentDescription = "Network & Ping Servers",
+                                tint = if (isNetworkTabActive) NeonCyan else SlateBlueMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (isArabic) "خوادم الألعاب واختبار Ping (8 مواقع)" else "Gaming Servers & Ping (8 Nodes)",
+                                fontSize = 14.sp,
+                                fontWeight = if (isNetworkTabActive) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isNetworkTabActive) PureWhite else SlateBlueMuted
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+
                         // Screen 12: حول التطبيق
                         Row(
                             modifier = Modifier
@@ -752,7 +783,12 @@ fun MainAppRoot(
                                         onLaunchGameIntent(game)
                                     }
                                 },
-                                onNavigateToSessions = { currentTab = ScreenTab.SESSIONS }
+                                onNavigateToSessions = { currentTab = ScreenTab.SESSIONS },
+                                pingServers = pingServers,
+                                onNavigateToNetwork = {
+                                    currentTab = ScreenTab.TOOLS
+                                    selectedToolIndex = 1
+                                }
                             )
                         }
 

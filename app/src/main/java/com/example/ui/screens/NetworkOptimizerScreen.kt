@@ -47,6 +47,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,12 +85,12 @@ import com.example.ui.theme.TextSecondary
 /**
  * Screen 4: شاشة محسن الشبكات واختبار Ping الفعلي
  * Includes:
- * 1. Choice of 8 regional ping testing destinations (KSA Riyadh, UAE Dubai, Egypt Cairo,
+ * 1. 8 Selectable regional gaming benchmark destinations (KSA Riyadh, UAE Dubai, Egypt Cairo,
  *    US East, US West, UK London, Germany Frankfurt, Singapore).
  * 2. Dedicated "اختبار Ping" button measuring real TCP connect latency, jitter, and packet loss.
- * 3. Loading, success, and clear "تعذر الاتصال" error states.
- * 4. Technical explanation that measurements are real TCP handshake latency (not ICMP).
- * 5. Full preservation of iOS glassmorphic styling, radar pulse, and boost controls.
+ * 3. Individual "فحص" button for each server and "اختبار الكل" for bulk testing.
+ * 4. Technical explanation that measurements are real TCP handshake latency.
+ * 5. Transparent policy disclaimer (benchmarking tool, not VPN).
  */
 @Composable
 fun NetworkOptimizerScreen(
@@ -109,6 +110,15 @@ fun NetworkOptimizerScreen(
     var dnsOptimizationEnabled by remember { mutableStateOf(true) }
     var connectionBoostEnabled by remember { mutableStateOf(true) }
     var destinationDropdownExpanded by remember { mutableStateOf(false) }
+
+    val currentSelectedServer = servers.find { it.id == selectedServerId } ?: servers.firstOrNull()
+
+    // Automatically trigger test on entry if not tested yet
+    LaunchedEffect(selectedServerId) {
+        if (currentSelectedServer != null && currentSelectedServer.currentPingMs == null && !isTestingSingle && !isTestingAll) {
+            onTestSelectedServer(currentSelectedServer)
+        }
+    }
 
     val pulseTransition = rememberInfiniteTransition(label = "radar_pulse")
     val radarScale1 by pulseTransition.animateFloat(
@@ -130,8 +140,6 @@ fun NetworkOptimizerScreen(
         label = "radar_alpha_1"
     )
 
-    val currentSelectedServer = servers.find { it.id == selectedServerId } ?: servers.firstOrNull()
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -146,53 +154,76 @@ fun NetworkOptimizerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isArabic) "محسن الشبكة" else "Network Optimizer",
-                        fontSize = 20.sp,
+                        text = if (isArabic) "محسن الشبكة والخوادم" else "Network & Ping Servers",
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Black,
                         color = PureWhite
                     )
                     Text(
-                        text = if (isArabic) "فحص زمن الاستجابة الفعلي وتحسين الاستقرار" else "Real Socket Ping Benchmark & Low Latency",
+                        text = if (isArabic) "فحص زمن الاستجابة الحقيقي لـ 8 وجهات عالمية" else "Real Socket Ping Benchmark for 8 Global Regions",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
                 }
 
-                IconButton(
-                    onClick = onTestAllServers,
-                    enabled = !isTestingAll && !isTestingSingle
+                // Test All button in header
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isTestingAll) DeepGlassNavy else CardGlassSurface)
+                        .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .clickable(enabled = !isTestingAll && !isTestingSingle, onClick = onTestAllServers)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     if (isTestingAll) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = NeonCyan,
-                            strokeWidth = 2.dp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = NeonCyan,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isArabic) "جاري الفحص..." else "Testing...",
+                                fontSize = 11.sp,
+                                color = NeonCyan,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Test All",
-                            tint = NeonCyan
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Test All",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isArabic) "اختبار الكل" else "Test All",
+                                fontSize = 11.sp,
+                                color = NeonCyan,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Section 2: Concentric Radar Circles with Wi-Fi Icon (Visual Centerpiece)
+        // Section 2: Concentric Radar Circles with Wi-Fi Icon
         item {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(170.dp),
+                    .height(150.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.size(160.dp)) {
+                Canvas(modifier = Modifier.size(140.dp)) {
                     val radius = size.minDimension / 2
 
-                    // Concentric circles
                     drawCircle(
                         color = ElectricBlue.copy(alpha = 0.15f),
                         radius = radius * 0.95f,
@@ -208,8 +239,6 @@ fun NetworkOptimizerScreen(
                         radius = radius * 0.45f,
                         style = Stroke(width = 1.5.dp.toPx())
                     )
-
-                    // Animated pulsing radar wave
                     drawCircle(
                         color = NeonCyan.copy(alpha = radarAlpha1),
                         radius = radius * radarScale1,
@@ -217,10 +246,9 @@ fun NetworkOptimizerScreen(
                     )
                 }
 
-                // Central Glowing Wi-Fi Icon Badge
                 Box(
                     modifier = Modifier
-                        .size(62.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.radialGradient(
@@ -234,13 +262,13 @@ fun NetworkOptimizerScreen(
                         imageVector = Icons.Default.Wifi,
                         contentDescription = "Wi-Fi Radar",
                         tint = PureWhite,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
         }
 
-        // Section 3: Primary Ping Testing Card (وجهة اختبار Ping المحددة)
+        // Section 3: Selected Ping Destination Primary Test Card
         item {
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -262,7 +290,7 @@ fun NetworkOptimizerScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isArabic) "وجهة اختبار Ping" else "PING TEST DESTINATION",
+                                text = if (isArabic) "الوجهة النشطة للاختبار" else "ACTIVE TEST DESTINATION",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = RoyalGold,
@@ -331,7 +359,6 @@ fun NetworkOptimizerScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Selected Destination Info & Stats Display
                     if (currentSelectedServer != null) {
                         val ping = currentSelectedServer.currentPingMs
                         val isFailed = currentSelectedServer.isFailed
@@ -530,7 +557,7 @@ fun NetworkOptimizerScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isArabic) "اختبار Ping للوجهة المحددة" else "Test Selected Ping",
+                                        text = if (isArabic) "⚡ اختبار Ping للوجهة المحددة" else "⚡ Test Selected Ping",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Black,
                                         color = ObsidianBlack
@@ -572,7 +599,147 @@ fun NetworkOptimizerScreen(
             }
         }
 
-        // Section 4: System Network Optimization Controls (DNS, Fastpath, Boost)
+        // Section 4: All 8 Regional Servers List (PLACED PROMINENTLY RIGHT HERE)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (isArabic) "قائمة خوادم الألعاب الإقليمية (${servers.size} مواقع)" else "ALL REGIONAL GAMING NODES (${servers.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = RoyalGold,
+                    letterSpacing = 0.8.sp
+                )
+
+                Text(
+                    text = if (isArabic) "انقر لاختبار أي وجهة" else "Tap to select & test",
+                    fontSize = 10.sp,
+                    color = SlateBlueMuted
+                )
+            }
+        }
+
+        // All 8 Servers Items with direct "فحص" button
+        items(servers, key = { it.id }) { server ->
+            val isSelected = server.id == selectedServerId
+            val ping = server.currentPingMs
+            val isFailed = server.isFailed
+            val pingColor = when {
+                isFailed -> PerformanceRed
+                ping == null -> SlateBlueMuted
+                ping < 45 -> PerformanceGreen
+                ping < 90 -> NeonCyan
+                ping < 160 -> PerformanceAmber
+                else -> PerformanceRed
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isSelected) DeepGlassNavy.copy(alpha = 0.5f) else CardGlassSurface)
+                    .border(
+                        1.dp,
+                        if (isSelected) NeonCyan else Color.White.copy(alpha = 0.08f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onSelectServer(server.id) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = server.iconEmoji,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (isArabic) server.nameAr else server.nameEn,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                    color = if (isSelected) NeonCyan else PureWhite
+                                )
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "${server.location} • ${server.host}",
+                                fontSize = 10.sp,
+                                color = SlateBlueMuted
+                            )
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Ping Result Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(pingColor.copy(alpha = 0.18f))
+                                .border(1.dp, pingColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = when {
+                                    isFailed -> if (isArabic) "تعذر الاتصال" else "Failed"
+                                    ping != null -> "${ping}ms"
+                                    else -> "--"
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = pingColor
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Inline "فحص" button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CardGlassSurface)
+                                .border(1.dp, NeonCyan.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                .clickable(
+                                    enabled = !isTestingSingle && !isTestingAll,
+                                    onClick = {
+                                        onSelectServer(server.id)
+                                        onTestSelectedServer(server)
+                                    }
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isArabic) "فحص" else "Test",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonCyan
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 5: System Network Optimization Controls (DNS, Fastpath, Boost)
         item {
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -720,118 +887,6 @@ fun NetworkOptimizerScreen(
                                 )
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        // Section 5: List of All 8 Selectable Regional Servers
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isArabic) "خوادم الألعاب الإقليمية (${servers.size} مواقع)" else "ALL REGIONAL BENCHMARK NODES (${servers.size})",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = RoyalGold,
-                    letterSpacing = 0.8.sp
-                )
-
-                Text(
-                    text = if (isArabic) "انقر لاختبار أي وجهة" else "Tap to select & test",
-                    fontSize = 10.sp,
-                    color = SlateBlueMuted
-                )
-            }
-        }
-
-        items(servers, key = { it.id }) { server ->
-            val isSelected = server.id == selectedServerId
-            val ping = server.currentPingMs
-            val isFailed = server.isFailed
-            val pingColor = when {
-                isFailed -> PerformanceRed
-                ping == null -> SlateBlueMuted
-                ping < 45 -> PerformanceGreen
-                ping < 90 -> NeonCyan
-                ping < 160 -> PerformanceAmber
-                else -> PerformanceRed
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isSelected) DeepGlassNavy.copy(alpha = 0.5f) else CardGlassSurface)
-                    .border(
-                        1.dp,
-                        if (isSelected) NeonCyan else Color.White.copy(alpha = 0.08f),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .clickable { onSelectServer(server.id) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = server.iconEmoji,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = if (isArabic) server.nameAr else server.nameEn,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                    color = if (isSelected) NeonCyan else PureWhite
-                                )
-                                if (isSelected) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = NeonCyan,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "${server.location} • ${server.host}",
-                                fontSize = 10.sp,
-                                color = SlateBlueMuted
-                            )
-                        }
-                    }
-
-                    // Ping Badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(pingColor.copy(alpha = 0.18f))
-                            .border(1.dp, pingColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                isFailed -> if (isArabic) "تعذر الاتصال" else "Failed"
-                                ping != null -> "${ping}ms"
-                                else -> "--"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = pingColor
-                        )
                     }
                 }
             }
