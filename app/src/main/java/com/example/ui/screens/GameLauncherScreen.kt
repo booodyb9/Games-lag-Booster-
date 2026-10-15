@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,15 +21,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -51,23 +56,31 @@ import com.example.data.model.GameItem
 import com.example.ui.components.GlassCard
 import com.example.ui.theme.CardGlassSurface
 import com.example.ui.theme.DeepGlassNavy
+import com.example.ui.theme.GlassBlue
 import com.example.ui.theme.GlassCyan
 import com.example.ui.theme.PerformanceGreen
+import com.example.ui.theme.PerformanceRed
 import com.example.ui.theme.RoyalGold
 import com.example.ui.theme.RoyalGoldDark
 import com.example.ui.theme.RoyalGoldLight
+import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
 @Composable
 fun GameLauncherScreen(
     games: List<GameItem>,
+    deviceInstalledApps: List<GameItem> = emptyList(),
     isArabic: Boolean,
     onLaunchGame: (GameItem) -> Unit,
+    onAddGameFromDevice: (GameItem) -> Unit,
+    onRemoveGame: (packageName: String) -> Unit = {},
     onAddCustomGame: (name: String, pkg: String) -> Unit
 ) {
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showDeviceAppsDialog by remember { mutableStateOf(false) }
+    var showCustomAddDialog by remember { mutableStateOf(false) }
     var tuningGame by remember { mutableStateOf<GameItem?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     var customGameName by remember { mutableStateOf("") }
     var customGamePkg by remember { mutableStateOf("") }
@@ -75,15 +88,15 @@ fun GameLauncherScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(18.dp)
     ) {
-        // Header
+        // Luxury Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (isArabic) "مكتبة الألعاب ومُشغّل التوربو" else "GAME LIBRARY & GFX LAUNCHER",
                     fontSize = 11.sp,
@@ -92,123 +105,202 @@ fun GameLauncherScreen(
                     color = RoyalGold
                 )
                 Text(
-                    text = if (isArabic) "تشغيل الألعاب بأقصى سرعة" else "High-FPS Game Launcher",
-                    fontSize = 19.sp,
+                    text = if (isArabic) "ألعابك المعززة بالأداء الفائق" else "Turbo Boosted Games (${games.size})",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = TextPrimary
                 )
             }
 
-            IconButton(onClick = { showAddDialog = true }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Game",
-                    tint = RoyalGold
-                )
+            // Add from Device Apps Action Button
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Brush.horizontalGradient(listOf(RoyalGoldDark, RoyalGold)))
+                    .clickable { showDeviceAppsDialog = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = "Add from device",
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = if (isArabic) "إضافة من الجهاز" else "Add from Device",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(games) { game ->
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    borderColor = RoyalGold.copy(alpha = 0.25f)
-                ) {
-                    Row(
+        // Games List with refined spacing and luxury cards
+        if (games.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Gamepad,
+                        contentDescription = "No games",
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = if (isArabic) "لا توجد ألعاب مضافة حالياً" else "No boosted games added yet",
+                        color = TextSecondary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isArabic) "اضغط على 'إضافة من الجهاز' لاختيار ألعابك" else "Tap 'Add from Device' to select your installed games",
+                        color = TextMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(games, key = { it.packageName }) { game ->
+                    GlassCard(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        borderColor = RoyalGold.copy(alpha = 0.35f)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(DeepGlassNavy)
-                                    .border(1.5.dp, RoyalGold.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Gamepad,
-                                    contentDescription = "Game",
-                                    tint = RoyalGold,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column {
-                                Text(
-                                    text = game.appName,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    // Game Icon badge
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(PerformanceGreen.copy(alpha = 0.2f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            .size(46.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(DeepGlassNavy)
+                                            .border(1.5.dp, RoyalGold.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = "${game.targetFps} FPS TARGET",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = PerformanceGreen
+                                        Icon(
+                                            imageVector = Icons.Default.Gamepad,
+                                            contentDescription = "Game",
+                                            tint = RoyalGold,
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = game.resolutionPreset,
-                                        fontSize = 11.sp,
-                                        color = TextSecondary
-                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column {
+                                        Text(
+                                            text = game.appName,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary,
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(PerformanceGreen.copy(alpha = 0.2f))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${game.targetFps} FPS LOCK",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = PerformanceGreen
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = game.resolutionPreset,
+                                                fontSize = 11.sp,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
                                 }
-                            }
-                        }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { tuningGame = game }) {
-                                Icon(
-                                    imageVector = Icons.Default.Tune,
-                                    contentDescription = "Tune",
-                                    tint = GlassCyan,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Brush.horizontalGradient(listOf(RoyalGoldDark, RoyalGold)))
-                                    .clickable { onLaunchGame(game) }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Launch",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    IconButton(
+                                        onClick = { tuningGame = game },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Tune,
+                                            contentDescription = "Tune",
+                                            tint = GlassCyan,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (isArabic) "تشغيل" else "BOOST",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.Black
-                                    )
+
+                                    // Turbo Launch button
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    listOf(RoyalGoldDark, RoyalGold, RoyalGoldLight)
+                                                )
+                                            )
+                                            .clickable { onLaunchGame(game) }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.PlayArrow,
+                                                contentDescription = "Launch",
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = if (isArabic) "تشغيل" else "BOOST",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.Black
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    IconButton(
+                                        onClick = { onRemoveGame(game.packageName) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Remove",
+                                            tint = TextMuted,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -216,6 +308,185 @@ fun GameLauncherScreen(
                 }
             }
         }
+    }
+
+    // MODAL DIALOG: SELECT FROM INSTALLED DEVICE APPS & GAMES
+    if (showDeviceAppsDialog) {
+        val filteredApps = deviceInstalledApps.filter {
+            it.appName.contains(searchQuery, ignoreCase = true) ||
+                    it.packageName.contains(searchQuery, ignoreCase = true)
+        }
+
+        AlertDialog(
+            onDismissRequest = { showDeviceAppsDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (isArabic) "إضافة لعبة من تطبيقات الجهاز" else "Add Installed Device Apps",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = RoyalGold
+                        )
+                        Text(
+                            text = if (isArabic) "اختر أي لعبة أو تطبيق مثبت لتسريعه" else "Tap any installed app to add to booster",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+
+                    IconButton(onClick = { showDeviceAppsDialog = false }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(modifier = Modifier.height(380.dp)) {
+                    // Search Bar
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(if (isArabic) "ابحث عن لعبة أو تطبيق..." else "Search installed apps...") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = GlassCyan
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GlassCyan,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                            focusedContainerColor = Color.Black.copy(alpha = 0.4f),
+                            unfocusedContainerColor = Color.Black.copy(alpha = 0.4f)
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (filteredApps.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isArabic) "لم يتم العثور على نتائج" else "No matching apps found",
+                                color = TextMuted,
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredApps) { app ->
+                                val isAlreadyAdded = games.any { it.packageName == app.packageName }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isAlreadyAdded) CardGlassSurface else Color.Black.copy(alpha = 0.35f))
+                                        .border(1.dp, if (isAlreadyAdded) RoyalGold.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            if (!isAlreadyAdded) {
+                                                onAddGameFromDevice(app)
+                                            }
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = app.appName,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = app.packageName,
+                                            fontSize = 10.sp,
+                                            color = TextMuted,
+                                            maxLines = 1
+                                        )
+                                    }
+
+                                    if (isAlreadyAdded) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(PerformanceGreen.copy(alpha = 0.2f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Added",
+                                                    tint = PerformanceGreen,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text(
+                                                    text = if (isArabic) "مضاف" else "Added",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = PerformanceGreen
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Brush.horizontalGradient(listOf(RoyalGoldDark, RoyalGold)))
+                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isArabic) "+ إضافة" else "+ Add",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = if (isArabic) "أو كتابة اسم اللعبة والحزمة يدوياً ➔" else "Or add custom package manually ➔",
+                        fontSize = 11.sp,
+                        color = GlassCyan,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable {
+                            showDeviceAppsDialog = false
+                            showCustomAddDialog = true
+                        }
+                    )
+                }
+            },
+            confirmButton = {},
+            containerColor = DeepGlassNavy
+        )
     }
 
     // GFX Tuning Modal
@@ -303,13 +574,13 @@ fun GameLauncherScreen(
         )
     }
 
-    // Add Custom Game Dialog
-    if (showAddDialog) {
+    // Manual Add Dialog
+    if (showCustomAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = { showCustomAddDialog = false },
             title = {
                 Text(
-                    text = if (isArabic) "إضافة لعبة جديدة للمُسرّع" else "Add Game to Booster",
+                    text = if (isArabic) "إضافة لعبة يدوياً" else "Add Game Manually",
                     fontWeight = FontWeight.Bold,
                     color = RoyalGold
                 )
@@ -326,7 +597,7 @@ fun GameLauncherScreen(
                     OutlinedTextField(
                         value = customGamePkg,
                         onValueChange = { customGamePkg = it },
-                        label = { Text(if (isArabic) "اسم الحزمة (Package Name)" else "Package Name (e.g. com.game)") },
+                        label = { Text(if (isArabic) "اسم الحزمة (Package Name)" else "Package Name") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -341,7 +612,7 @@ fun GameLauncherScreen(
                             )
                             customGameName = ""
                             customGamePkg = ""
-                            showAddDialog = false
+                            showCustomAddDialog = false
                         }
                     }
                 ) {
@@ -349,7 +620,7 @@ fun GameLauncherScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(onClick = { showCustomAddDialog = false }) {
                     Text(if (isArabic) "إلغاء" else "Cancel", color = TextSecondary)
                 }
             },

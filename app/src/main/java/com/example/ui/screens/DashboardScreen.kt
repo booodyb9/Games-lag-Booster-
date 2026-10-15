@@ -584,13 +584,13 @@ fun DashboardScreen(
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = if (isArabic) "اضغط BOOST لتجربة التسريع" else "Tap BOOST to test",
+                        text = if (isArabic) "المس الدائرة للتوسيع • واسحبها للجانب" else "Tap circle to expand • Drag to dock",
                         fontSize = 10.sp,
                         color = RoyalGoldLight
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 FloatingGamingHud(
                     fps = currentMetrics.fps,
@@ -600,10 +600,13 @@ fun DashboardScreen(
                     batteryTemp = currentMetrics.batteryTemp,
                     thermalSafetyThreshold = 40.0f,
                     opacity = hudOpacity,
+                    initialBubbleMode = true,
                     onSpeedBoost = onTriggerAutoBoost,
                     onClearCache = onTriggerAutoBoost,
                     onCoolDown = onTriggerAutoBoost,
-                    onClose = { onToggleFloatingHud(false) }
+                    onClose = { onToggleFloatingHud(false) },
+                    onDragDelta = { _, _ -> },
+                    onDragEnd = {}
                 )
             }
         }

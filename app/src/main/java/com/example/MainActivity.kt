@@ -552,8 +552,10 @@ fun MainAppRoot(
                     }
 
                     ScreenTab.GAMES -> {
+                        val deviceApps = remember { sessionStorage.getInstalledLaunchableApps() }
                         GameLauncherScreen(
                             games = games,
+                            deviceInstalledApps = deviceApps,
                             isArabic = isArabic,
                             onLaunchGame = { game ->
                                 coroutineScope.launch {
@@ -561,6 +563,12 @@ fun MainAppRoot(
                                     sessionStorage.startRecording(game.appName, game.packageName)
                                     onLaunchGameIntent(game)
                                 }
+                            },
+                            onAddGameFromDevice = { game ->
+                                sessionStorage.addGameFromDevice(game)
+                            },
+                            onRemoveGame = { pkg ->
+                                sessionStorage.removeGame(pkg)
                             },
                             onAddCustomGame = { name, pkg ->
                                 sessionStorage.addCustomGame(name, pkg)

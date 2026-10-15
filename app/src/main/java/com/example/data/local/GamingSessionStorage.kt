@@ -165,11 +165,53 @@ class GamingSessionStorage(private val context: Context) {
             targetFps = 90,
             resolutionPreset = "FHD (1080p)",
             isTurboEnabled = true,
-            lastPlayedDate = "Just added"
+            lastPlayedDate = "Added from device"
         )
-        val updated = listOf(item) + _games.value
+        if (_games.value.none { it.packageName == packageName }) {
+            val updated = listOf(item) + _games.value
+            _games.value = updated
+            saveGamesToPrefs(updated)
+        }
+    }
+
+    fun addGameFromDevice(game: GameItem) {
+        if (_games.value.none { it.packageName == game.packageName }) {
+            val updated = listOf(game) + _games.value
+            _games.value = updated
+            saveGamesToPrefs(updated)
+        }
+    }
+
+    fun removeGame(packageName: String) {
+        val updated = _games.value.filterNot { it.packageName == packageName }
         _games.value = updated
         saveGamesToPrefs(updated)
+    }
+
+    fun getInstalledLaunchableApps(): List<GameItem> {
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+        val list = mutableListOf<GameItem>()
+        for (info in resolveInfos) {
+            val pkg = info.activityInfo.packageName
+            if (pkg == context.packageName) continue
+            val label = info.loadLabel(pm).toString()
+            list.add(
+                GameItem(
+                    packageName = pkg,
+                    appName = label,
+                    isCustom = true,
+                    targetFps = 90,
+                    resolutionPreset = "FHD (1080p)",
+                    isTurboEnabled = true,
+                    lastPlayedDate = "Installed on Device"
+                )
+            )
+        }
+        return list.sortedBy { it.appName.lowercase() }
     }
 
     private fun scanInstalledGames(): List<GameItem> {

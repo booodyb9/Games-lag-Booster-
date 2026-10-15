@@ -192,13 +192,22 @@ class FloatingPanelService : Service() {
                             try {
                                 windowManager?.updateViewLayout(this@apply, params)
                             } catch (_: Exception) {}
+                        },
+                        onDragEnd = {
+                            val screenWidth = resources.displayMetrics.widthPixels
+                            val currentW = if (this@apply.width > 0) this@apply.width else 160
+                            val snapX = if (params.x < screenWidth / 2) 0 else (screenWidth - currentW).coerceAtLeast(0)
+                            params.x = snapX
+                            try {
+                                windowManager?.updateViewLayout(this@apply, params)
+                            } catch (_: Exception) {}
                         }
                     )
                 }
             }
         }
 
-        // Add touch listener for seamless edge dragging
+        // Add touch listener for seamless edge dragging and snapping
         var initialX = 0
         var initialY = 0
         var touchStartX = 0f
@@ -216,13 +225,22 @@ class FloatingPanelService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - touchStartX).toInt()
                     val dy = (event.rawY - touchStartY).toInt()
-                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                        params.x = initialX + dx
-                        params.y = initialY + dy
+                    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                        params.x = (initialX + dx).coerceAtLeast(0)
+                        params.y = (initialY + dy).coerceAtLeast(0)
                         try {
                             windowManager?.updateViewLayout(view, params)
                         } catch (_: Exception) {}
                     }
+                    false
+                }
+                MotionEvent.ACTION_UP -> {
+                    val screenWidth = resources.displayMetrics.widthPixels
+                    val snapX = if (params.x < screenWidth / 2) 0 else (screenWidth - view.width).coerceAtLeast(0)
+                    params.x = snapX
+                    try {
+                        windowManager?.updateViewLayout(view, params)
+                    } catch (_: Exception) {}
                     false
                 }
                 else -> false
