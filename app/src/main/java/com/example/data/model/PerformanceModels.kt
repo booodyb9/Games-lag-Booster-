@@ -80,7 +80,10 @@ data class PingServerTarget(
     val iconEmoji: String,
     val currentPingMs: Int? = null,
     val jitterMs: Int? = null,
-    val status: String = "Idle"
+    val packetLossPercent: Int? = null,
+    val status: String = "Idle",
+    val isFailed: Boolean = false,
+    val lastTestedTimestamp: Long? = null
 )
 
 /**

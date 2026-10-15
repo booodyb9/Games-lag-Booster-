@@ -275,29 +275,127 @@ fun MainAppRoot(
         refreshProcesses()
     }
 
-    // Network servers state
+    // 8 Regional Gaming Ping Benchmark Destinations as requested
     var pingServers by remember {
         mutableStateOf(
             listOf(
-                PingServerTarget("riyadh", "خادم الرياض للألعاب", "Riyadh ME Gaming Hub", "Saudi Arabia (KSA)", "1.1.1.1", 53, "🇸🇦", 21, 1),
-                PingServerTarget("jeddah", "خادم جدة السحابي", "Jeddah Edge Node", "Western Province", "8.8.8.8", 53, "🇸🇦", 24, 2),
-                PingServerTarget("dubai", "خادم دبي للألعاب", "Dubai UAE Server", "United Arab Emirates", "1.0.0.1", 53, "🇦🇪", 31, 3),
-                PingServerTarget("frankfurt", "خادم فرانكفورت الدولي", "Frankfurt EU Cluster", "Germany", "8.8.4.4", 53, "🇩🇪", 68, 4),
-                PingServerTarget("singapore", "خادم سنغافورة آسيا", "Singapore SEA Node", "Asia Pacific", "208.67.222.222", 53, "🇸🇬", 94, 6)
+                PingServerTarget(
+                    id = "riyadh",
+                    nameAr = "السعودية — الرياض",
+                    nameEn = "Saudi Arabia — Riyadh",
+                    location = "Riyadh (KSA Hub)",
+                    host = "stc.com.sa",
+                    port = 443,
+                    iconEmoji = "🇸🇦"
+                ),
+                PingServerTarget(
+                    id = "dubai",
+                    nameAr = "الإمارات — دبي",
+                    nameEn = "UAE — Dubai",
+                    location = "Dubai (Middle East Cloud)",
+                    host = "ec2.me-central-1.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇦🇪"
+                ),
+                PingServerTarget(
+                    id = "cairo",
+                    nameAr = "مصر — القاهرة",
+                    nameEn = "Egypt — Cairo",
+                    location = "Cairo (North Africa)",
+                    host = "www.orange.eg",
+                    port = 443,
+                    iconEmoji = "🇪🇬"
+                ),
+                PingServerTarget(
+                    id = "us_east",
+                    nameAr = "أمريكا — شرق الولايات المتحدة",
+                    nameEn = "USA — US East",
+                    location = "N. Virginia (US East)",
+                    host = "ec2.us-east-1.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇺🇸"
+                ),
+                PingServerTarget(
+                    id = "us_west",
+                    nameAr = "أمريكا — غرب الولايات المتحدة",
+                    nameEn = "USA — US West",
+                    location = "Oregon (US West)",
+                    host = "ec2.us-west-2.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇺🇸"
+                ),
+                PingServerTarget(
+                    id = "london",
+                    nameAr = "بريطانيا — لندن",
+                    nameEn = "UK — London",
+                    location = "London (West Europe)",
+                    host = "ec2.eu-west-2.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇬🇧"
+                ),
+                PingServerTarget(
+                    id = "frankfurt",
+                    nameAr = "ألمانيا — فرانكفورت",
+                    nameEn = "Germany — Frankfurt",
+                    location = "Frankfurt (Central Europe)",
+                    host = "ec2.eu-central-1.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇩🇪"
+                ),
+                PingServerTarget(
+                    id = "singapore",
+                    nameAr = "سنغافورة",
+                    nameEn = "Singapore",
+                    location = "Singapore (Asia Pacific)",
+                    host = "ec2.ap-southeast-1.amazonaws.com",
+                    port = 443,
+                    iconEmoji = "🇸🇬"
+                )
             )
         )
     }
+
+    var selectedPingServerId by remember {
+        mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "riyadh") ?: "riyadh")
+    }
     var isTestingNetwork by remember { mutableStateOf(false) }
+    var isTestingSingleServer by remember { mutableStateOf(false) }
     var isOptimizingNetwork by remember { mutableStateOf(false) }
     var networkOptimizationDone by remember { mutableStateOf(false) }
+
+    fun testSingleServer(target: PingServerTarget) {
+        coroutineScope.launch {
+            isTestingSingleServer = true
+            val res = autoBoostEngine.measureDetailedServerPing(target.host, target.port, probeCount = 3)
+            pingServers = pingServers.map { s ->
+                if (s.id == target.id) {
+                    s.copy(
+                        currentPingMs = res.pingMs,
+                        jitterMs = res.jitterMs,
+                        packetLossPercent = res.packetLossPercent,
+                        isFailed = !res.isSuccess,
+                        status = res.statusText,
+                        lastTestedTimestamp = System.currentTimeMillis()
+                    )
+                } else s
+            }
+            isTestingSingleServer = false
+        }
+    }
 
     fun testAllServers() {
         coroutineScope.launch {
             isTestingNetwork = true
             val updated = pingServers.map { s ->
-                val realPing = autoBoostEngine.measureRealSocketLatency(s.host, s.port)
-                val jitter = (realPing % 4) + 1
-                s.copy(currentPingMs = realPing, jitterMs = jitter)
+                val res = autoBoostEngine.measureDetailedServerPing(s.host, s.port, probeCount = 2)
+                s.copy(
+                    currentPingMs = res.pingMs,
+                    jitterMs = res.jitterMs,
+                    packetLossPercent = res.packetLossPercent,
+                    isFailed = !res.isSuccess,
+                    status = res.statusText,
+                    lastTestedTimestamp = System.currentTimeMillis()
+                )
             }
             pingServers = updated
             isTestingNetwork = false
@@ -746,11 +844,20 @@ fun MainAppRoot(
                                     1 -> {
                                         NetworkOptimizerScreen(
                                             servers = pingServers,
-                                            isTesting = isTestingNetwork,
+                                            selectedServerId = selectedPingServerId,
+                                            isTestingAll = isTestingNetwork,
+                                            isTestingSingle = isTestingSingleServer,
                                             isOptimizingNetwork = isOptimizingNetwork,
                                             networkOptimizationDone = networkOptimizationDone,
                                             overallJitterMs = 2,
                                             isArabic = isArabic,
+                                            onSelectServer = { newId ->
+                                                selectedPingServerId = newId
+                                                sharedPrefs.edit().putString("selected_ping_server_id", newId).apply()
+                                            },
+                                            onTestSelectedServer = { server ->
+                                                testSingleServer(server)
+                                            },
                                             onTestAllServers = { testAllServers() },
                                             onOptimizeNetworkRouting = {
                                                 coroutineScope.launch {

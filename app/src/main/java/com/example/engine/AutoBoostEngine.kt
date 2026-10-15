@@ -357,12 +357,80 @@ class AutoBoostEngine(private val context: Context) {
             Socket().use { socket ->
                 socket.tcpNoDelay = true
                 socket.trafficClass = 0x10 // IPTOS_LOWDELAY
-                socket.connect(InetSocketAddress(host, port), 1000)
+                socket.connect(InetSocketAddress(host, port), 1200)
                 val latency = (SystemClock.elapsedRealtime() - startTime).toInt()
                 latency.coerceIn(8, 300)
             }
         } catch (_: Exception) {
             28
+        }
+    }
+
+    /**
+     * Detailed multi-probe TCP socket ping measurement for regional destination benchmarking.
+     * Measures actual connect latency (ms), jitter (ms), and packet loss (%).
+     * Returns isSuccess=false and pingMs=null if unreachable.
+     */
+    suspend fun measureDetailedServerPing(
+        host: String,
+        port: Int,
+        probeCount: Int = 3
+    ): DetailedPingResult = withContext(Dispatchers.IO) {
+        val latencies = mutableListOf<Int>()
+        var failedAttempts = 0
+
+        for (i in 0 until probeCount) {
+            val t0 = SystemClock.elapsedRealtime()
+            try {
+                Socket().use { socket ->
+                    socket.tcpNoDelay = true
+                    socket.trafficClass = 0x10 // IPTOS_LOWDELAY
+                    socket.connect(InetSocketAddress(host, port), 2500)
+                    val elapsed = (SystemClock.elapsedRealtime() - t0).toInt()
+                    latencies.add(elapsed)
+                }
+            } catch (_: Exception) {
+                failedAttempts++
+            }
+            if (i < probeCount - 1) {
+                delay(80)
+            }
+        }
+
+        val lossPercent = ((failedAttempts.toFloat() / probeCount) * 100).toInt()
+
+        if (latencies.isEmpty()) {
+            DetailedPingResult(
+                pingMs = null,
+                jitterMs = null,
+                packetLossPercent = 100,
+                isSuccess = false,
+                statusText = "تعذر الاتصال"
+            )
+        } else {
+            val avg = latencies.average().toInt()
+            val jitter = if (latencies.size > 1) {
+                var sumDiff = 0
+                for (j in 1 until latencies.size) {
+                    sumDiff += kotlin.math.abs(latencies[j] - latencies[j - 1])
+                }
+                (sumDiff / (latencies.size - 1)).coerceAtLeast(1)
+            } else {
+                1
+            }
+            val status = when {
+                avg < 40 -> "ممتاز للألعاب"
+                avg < 80 -> "مستقر وسريع"
+                avg < 150 -> "متوسط الاستجابة"
+                else -> "مرتفع (تأخير ملحوظ)"
+            }
+            DetailedPingResult(
+                pingMs = avg,
+                jitterMs = jitter,
+                packetLossPercent = lossPercent,
+                isSuccess = true,
+                statusText = status
+            )
         }
     }
 
@@ -397,3 +465,14 @@ class AutoBoostEngine(private val context: Context) {
         } catch (_: Exception) {}
     }
 }
+
+/**
+ * Result of a detailed multi-probe TCP socket ping measurement.
+ */
+data class DetailedPingResult(
+    val pingMs: Int?,
+    val jitterMs: Int?,
+    val packetLossPercent: Int,
+    val isSuccess: Boolean,
+    val statusText: String
+)

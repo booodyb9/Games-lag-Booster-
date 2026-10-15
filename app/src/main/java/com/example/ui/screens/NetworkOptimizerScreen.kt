@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,16 +27,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
@@ -48,21 +54,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.PingServerTarget
 import com.example.ui.components.GlassCard
+import com.example.ui.theme.CardGlassBorder
 import com.example.ui.theme.CardGlassSurface
 import com.example.ui.theme.DarkSlate
 import com.example.ui.theme.DeepGlassNavy
+import com.example.ui.theme.DeepVoidBlack
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.ObsidianBlack
+import com.example.ui.theme.PerformanceAmber
 import com.example.ui.theme.PerformanceGreen
 import com.example.ui.theme.PerformanceRed
 import com.example.ui.theme.PureWhite
@@ -73,23 +82,33 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
 /**
- * Screen 4 from GlassBoost UI Design System:
- * شاشة تحسين الشبكة (Network Optimizer) with concentric radar pulse, connection status,
- * gaming DNS toggles, and regional server live ping tests.
+ * Screen 4: شاشة محسن الشبكات واختبار Ping الفعلي
+ * Includes:
+ * 1. Choice of 8 regional ping testing destinations (KSA Riyadh, UAE Dubai, Egypt Cairo,
+ *    US East, US West, UK London, Germany Frankfurt, Singapore).
+ * 2. Dedicated "اختبار Ping" button measuring real TCP connect latency, jitter, and packet loss.
+ * 3. Loading, success, and clear "تعذر الاتصال" error states.
+ * 4. Technical explanation that measurements are real TCP handshake latency (not ICMP).
+ * 5. Full preservation of iOS glassmorphic styling, radar pulse, and boost controls.
  */
 @Composable
 fun NetworkOptimizerScreen(
     servers: List<PingServerTarget>,
-    isTesting: Boolean,
+    selectedServerId: String,
+    isTestingAll: Boolean,
+    isTestingSingle: Boolean,
     isOptimizingNetwork: Boolean,
     networkOptimizationDone: Boolean,
     overallJitterMs: Int,
     isArabic: Boolean,
+    onSelectServer: (String) -> Unit,
+    onTestSelectedServer: (PingServerTarget) -> Unit,
     onTestAllServers: () -> Unit,
     onOptimizeNetworkRouting: () -> Unit
 ) {
     var dnsOptimizationEnabled by remember { mutableStateOf(true) }
     var connectionBoostEnabled by remember { mutableStateOf(true) }
+    var destinationDropdownExpanded by remember { mutableStateOf(false) }
 
     val pulseTransition = rememberInfiniteTransition(label = "radar_pulse")
     val radarScale1 by pulseTransition.animateFloat(
@@ -111,326 +130,731 @@ fun NetworkOptimizerScreen(
         label = "radar_alpha_1"
     )
 
-    Column(
+    val currentSelectedServer = servers.find { it.id == selectedServerId } ?: servers.firstOrNull()
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Top Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = if (isArabic) "محسن الشبكة" else "Network Optimizer",
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Black,
-                    color = PureWhite
-                )
-                Text(
-                    text = if (isArabic) "تثبيت البنج وإزالة اللاغ والتقطيع" else "Low Ping Lock & Jitter Free",
-                    fontSize = 11.sp,
-                    color = SlateBlueMuted
-                )
-            }
+        // Section 1: Top Header
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (isArabic) "محسن الشبكة" else "Network Optimizer",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = PureWhite
+                    )
+                    Text(
+                        text = if (isArabic) "فحص زمن الاستجابة الفعلي وتحسين الاستقرار" else "Real Socket Ping Benchmark & Low Latency",
+                        fontSize = 11.sp,
+                        color = SlateBlueMuted
+                    )
+                }
 
-            IconButton(onClick = onTestAllServers) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Test",
-                    tint = NeonCyan
-                )
+                IconButton(
+                    onClick = onTestAllServers,
+                    enabled = !isTestingAll && !isTestingSingle
+                ) {
+                    if (isTestingAll) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = NeonCyan,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Test All",
+                            tint = NeonCyan
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Center Concentric Radar Circles with Wi-Fi Icon (Screen 4 Visual Centerpiece)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(170.dp)) {
-                val radius = size.minDimension / 2
-
-                // Concentric circles
-                drawCircle(
-                    color = ElectricBlue.copy(alpha = 0.15f),
-                    radius = radius * 0.95f,
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = NeonCyan.copy(alpha = 0.25f),
-                    radius = radius * 0.70f,
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = ElectricBlue.copy(alpha = 0.35f),
-                    radius = radius * 0.45f,
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-
-                // Animated pulsing radar wave
-                drawCircle(
-                    color = NeonCyan.copy(alpha = radarAlpha1),
-                    radius = radius * radarScale1,
-                    style = Stroke(width = 2.dp.toPx())
-                )
-            }
-
-            // Central Glowing Wi-Fi Icon Badge
+        // Section 2: Concentric Radar Circles with Wi-Fi Icon (Visual Centerpiece)
+        item {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(ElectricBlue, DeepGlassNavy)
-                        )
-                    )
-                    .border(2.dp, NeonCyan, CircleShape),
+                    .fillMaxWidth()
+                    .height(170.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Wifi,
-                    contentDescription = "Wi-Fi Radar",
-                    tint = PureWhite,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+                Canvas(modifier = Modifier.size(160.dp)) {
+                    val radius = size.minDimension / 2
 
-        // Connection Status Card (Matching Screen 4: "الاتصال محسن")
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            borderColor = if (networkOptimizationDone) PerformanceGreen else NeonCyan.copy(alpha = 0.5f)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isArabic) "الاتصال محسن" else "Connection Optimized",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
-                    color = PureWhite
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (isArabic) "تم تحسين استقرار الشبكة وزيادة السرعة" else "Network stability locked & latency reduced",
-                    fontSize = 11.sp,
-                    color = SlateBlueMuted
-                )
+                    // Concentric circles
+                    drawCircle(
+                        color = ElectricBlue.copy(alpha = 0.15f),
+                        radius = radius * 0.95f,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                    drawCircle(
+                        color = NeonCyan.copy(alpha = 0.25f),
+                        radius = radius * 0.70f,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                    drawCircle(
+                        color = ElectricBlue.copy(alpha = 0.35f),
+                        radius = radius * 0.45f,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Toggle 1: تحسين DNS
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = "DNS",
-                            tint = NeonCyan,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isArabic) "تحسين خوادم DNS" else "Gaming DNS Fastpath",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PureWhite
-                        )
-                    }
-
-                    Switch(
-                        checked = dnsOptimizationEnabled,
-                        onCheckedChange = { dnsOptimizationEnabled = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = NeonCyan,
-                            checkedTrackColor = DeepGlassNavy,
-                            uncheckedThumbColor = SlateBlueMuted,
-                            uncheckedTrackColor = DarkSlate
-                        )
+                    // Animated pulsing radar wave
+                    drawCircle(
+                        color = NeonCyan.copy(alpha = radarAlpha1),
+                        radius = radius * radarScale1,
+                        style = Stroke(width = 2.dp.toPx())
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Toggle 2: تسريع الاتصال
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = "Speed",
-                            tint = NeonCyan,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isArabic) "تسريع الاتصال (TCP No-Delay)" else "Connection Accelerator",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PureWhite
-                        )
-                    }
-
-                    Switch(
-                        checked = connectionBoostEnabled,
-                        onCheckedChange = { connectionBoostEnabled = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = NeonCyan,
-                            checkedTrackColor = DeepGlassNavy,
-                            uncheckedThumbColor = SlateBlueMuted,
-                            uncheckedTrackColor = DarkSlate
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Optimize Action Button
+                // Central Glowing Wi-Fi Icon Badge
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(62.dp)
+                        .clip(CircleShape)
                         .background(
-                            Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
+                            Brush.radialGradient(
+                                listOf(ElectricBlue, DeepGlassNavy)
+                            )
                         )
-                        .clickable(enabled = !isOptimizingNetwork, onClick = onOptimizeNetworkRouting),
+                        .border(2.dp, NeonCyan, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isOptimizingNetwork) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = ObsidianBlack,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isArabic) "جاري ضبط المسارات..." else "Optimizing routes...",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ObsidianBlack
-                            )
-                        }
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = "Optimize",
-                                tint = ObsidianBlack,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (isArabic) "تفعيل تحسين الشبكة الآن" else "Activate Network Boost",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ObsidianBlack
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Wifi,
+                        contentDescription = "Wi-Fi Radar",
+                        tint = PureWhite,
+                        modifier = Modifier.size(30.dp)
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Regional Ping Nodes List
-        Text(
-            text = if (isArabic) "خوادم الألعاب الإقليمية (Live Ping)" else "REGIONAL GAMING SERVERS",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = RoyalGold,
-            letterSpacing = 0.8.sp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(servers) { server ->
-                val ping = server.currentPingMs
-                val pingColor = when {
-                    ping == null -> SlateBlueMuted
-                    ping < 35 -> PerformanceGreen
-                    ping < 65 -> NeonCyan
-                    else -> PerformanceRed
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CardGlassSurface)
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
+        // Section 3: Primary Ping Testing Card (وجهة اختبار Ping المحددة)
+        item {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                borderColor = NeonCyan.copy(alpha = 0.45f)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Header row: Destination picker trigger
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = server.iconEmoji,
-                                fontSize = 18.sp
+                            Icon(
+                                imageVector = Icons.Default.Place,
+                                contentDescription = "Destination",
+                                tint = RoyalGold,
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = if (isArabic) server.nameAr else server.nameEn,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = PureWhite
-                                )
-                                Text(
-                                    text = server.location,
-                                    fontSize = 10.sp,
-                                    color = SlateBlueMuted
-                                )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isArabic) "وجهة اختبار Ping" else "PING TEST DESTINATION",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = RoyalGold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        // Dropdown selection trigger
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.45f))
+                                    .border(1.dp, NeonCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .clickable { destinationDropdownExpanded = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = currentSelectedServer?.let { "${it.iconEmoji} ${if (isArabic) it.nameAr else it.nameEn}" }
+                                            ?: if (isArabic) "اختر الوجهة" else "Select Target",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PureWhite
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Dropdown",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = destinationDropdownExpanded,
+                                onDismissRequest = { destinationDropdownExpanded = false },
+                                modifier = Modifier
+                                    .background(DeepVoidBlack)
+                                    .border(1.dp, CardGlassBorder, RoundedCornerShape(8.dp))
+                            ) {
+                                servers.forEach { server ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(text = server.iconEmoji, fontSize = 16.sp)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = if (isArabic) server.nameAr else server.nameEn,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (server.id == selectedServerId) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (server.id == selectedServerId) NeonCyan else PureWhite
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            onSelectServer(server.id)
+                                            destinationDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Selected Destination Info & Stats Display
+                    if (currentSelectedServer != null) {
+                        val ping = currentSelectedServer.currentPingMs
+                        val isFailed = currentSelectedServer.isFailed
+                        val jitter = currentSelectedServer.jitterMs
+                        val loss = currentSelectedServer.packetLossPercent
+
+                        val pingColor = when {
+                            isFailed -> PerformanceRed
+                            ping == null -> SlateBlueMuted
+                            ping < 45 -> PerformanceGreen
+                            ping < 90 -> NeonCyan
+                            ping < 160 -> PerformanceAmber
+                            else -> PerformanceRed
+                        }
+
+                        // Display Container
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .border(1.dp, pingColor.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                                .padding(14.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "${currentSelectedServer.iconEmoji} ${if (isArabic) currentSelectedServer.nameAr else currentSelectedServer.nameEn}",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = PureWhite
+                                        )
+                                        Text(
+                                            text = "${currentSelectedServer.location} • ${currentSelectedServer.host}",
+                                            fontSize = 10.sp,
+                                            color = SlateBlueMuted
+                                        )
+                                    }
+
+                                    // Main Ping or Failure Readout
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(pingColor.copy(alpha = 0.18f))
+                                            .border(1.dp, pingColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = when {
+                                                isFailed -> if (isArabic) "تعذر الاتصال" else "Failed"
+                                                ping != null -> "${ping}ms"
+                                                else -> "--"
+                                            },
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = pingColor
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Sub-metrics: Connection Status, Jitter, Packet Loss
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Status Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1.3f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(CardGlassSurface)
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = if (isArabic) "حالة الاتصال" else "STATUS",
+                                                fontSize = 9.sp,
+                                                color = SlateBlueMuted
+                                            )
+                                            Text(
+                                                text = if (isFailed) {
+                                                    if (isArabic) "تعذر الوصول" else "Unreachable"
+                                                } else if (ping != null) {
+                                                    when {
+                                                        ping < 45 -> if (isArabic) "ممتاز للألعاب" else "Excellent"
+                                                        ping < 90 -> if (isArabic) "مستقر وسريع" else "Good & Stable"
+                                                        ping < 160 -> if (isArabic) "متوسط الاستجابة" else "Moderate"
+                                                        else -> if (isArabic) "تأخير مرتفع" else "High Latency"
+                                                    }
+                                                } else {
+                                                    if (isArabic) "جاهز للاختبار" else "Ready to Test"
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = pingColor,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+
+                                    // Jitter Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(0.9f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(CardGlassSurface)
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "JITTER",
+                                                fontSize = 9.sp,
+                                                color = SlateBlueMuted
+                                            )
+                                            Text(
+                                                text = if (jitter != null && !isFailed) "${jitter}ms" else "--",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PureWhite
+                                            )
+                                        }
+                                    }
+
+                                    // Packet Loss Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(CardGlassSurface)
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = if (isArabic) "فقد الحزم" else "LOSS",
+                                                fontSize = 9.sp,
+                                                color = SlateBlueMuted
+                                            )
+                                            Text(
+                                                text = if (loss != null) "${loss}%" else "0%",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (loss != null && loss > 0) PerformanceRed else PerformanceGreen
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Dedicated "اختبار Ping" Button for the selected destination
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(pingColor.copy(alpha = 0.18f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
+                                )
+                                .clickable(
+                                    enabled = !isTestingSingle && !isTestingAll,
+                                    onClick = { onTestSelectedServer(currentSelectedServer) }
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
+                            if (isTestingSingle) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = ObsidianBlack,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isArabic) "جاري قياس زمن استجابة TCP..." else "Testing TCP Connect Latency...",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = ObsidianBlack
+                                    )
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Speed,
+                                        contentDescription = "Ping",
+                                        tint = ObsidianBlack,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isArabic) "اختبار Ping للوجهة المحددة" else "Test Selected Ping",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = ObsidianBlack
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Technical Clarification Note (TCP Connect vs ICMP)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DeepGlassNavy.copy(alpha = 0.4f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Technical Info",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (ping != null) "${ping}ms" else "--",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                color = pingColor
+                                text = if (isArabic)
+                                    "النتيجة تمثل زمن اتصال TCP المباشر (TCP Handshake Socket) بنقاط الاختبار الفعلية لضمان الدقة وتوافق أندرويد."
+                                else
+                                    "Measured via real direct TCP Handshake Socket Connect to reachable endpoints, complying with Android network APIs.",
+                                fontSize = 10.sp,
+                                color = SlateBlueMuted,
+                                lineHeight = 14.sp
                             )
                         }
                     }
                 }
+            }
+        }
+
+        // Section 4: System Network Optimization Controls (DNS, Fastpath, Boost)
+        item {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                borderColor = if (networkOptimizationDone) PerformanceGreen else NeonCyan.copy(alpha = 0.5f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isArabic) "الاتصال ومسارات الشبكة" else "Connection & Routing Fastpath",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        color = PureWhite
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isArabic) "تحسين استقرار الاتصال وتقليل تقلبات البنج" else "Network stability locked & socket fastpath primed",
+                        fontSize = 11.sp,
+                        color = SlateBlueMuted
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Toggle 1: تحسين DNS
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Dns,
+                                contentDescription = "DNS",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isArabic) "تحسين خوادم DNS للألعاب" else "Gaming DNS Fastpath",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PureWhite
+                            )
+                        }
+
+                        Switch(
+                            checked = dnsOptimizationEnabled,
+                            onCheckedChange = { dnsOptimizationEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NeonCyan,
+                                checkedTrackColor = DeepGlassNavy,
+                                uncheckedThumbColor = SlateBlueMuted,
+                                uncheckedTrackColor = DarkSlate
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Toggle 2: تسريع الاتصال
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = "Speed",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isArabic) "تنشيط تسريع TCP No-Delay" else "TCP Low-Delay Socket",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PureWhite
+                            )
+                        }
+
+                        Switch(
+                            checked = connectionBoostEnabled,
+                            onCheckedChange = { connectionBoostEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NeonCyan,
+                                checkedTrackColor = DeepGlassNavy,
+                                uncheckedThumbColor = SlateBlueMuted,
+                                uncheckedTrackColor = DarkSlate
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Optimize Action Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(CardGlassSurface)
+                            .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable(enabled = !isOptimizingNetwork, onClick = onOptimizeNetworkRouting),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isOptimizingNetwork) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = NeonCyan,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isArabic) "جاري ضبط المسارات..." else "Optimizing routes...",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan
+                                )
+                            }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = "Optimize",
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isArabic) "تفعيل تحسين الشبكة الآن" else "Activate Network Boost",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PureWhite
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 5: List of All 8 Selectable Regional Servers
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (isArabic) "خوادم الألعاب الإقليمية (${servers.size} مواقع)" else "ALL REGIONAL BENCHMARK NODES (${servers.size})",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = RoyalGold,
+                    letterSpacing = 0.8.sp
+                )
+
+                Text(
+                    text = if (isArabic) "انقر لاختبار أي وجهة" else "Tap to select & test",
+                    fontSize = 10.sp,
+                    color = SlateBlueMuted
+                )
+            }
+        }
+
+        items(servers, key = { it.id }) { server ->
+            val isSelected = server.id == selectedServerId
+            val ping = server.currentPingMs
+            val isFailed = server.isFailed
+            val pingColor = when {
+                isFailed -> PerformanceRed
+                ping == null -> SlateBlueMuted
+                ping < 45 -> PerformanceGreen
+                ping < 90 -> NeonCyan
+                ping < 160 -> PerformanceAmber
+                else -> PerformanceRed
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isSelected) DeepGlassNavy.copy(alpha = 0.5f) else CardGlassSurface)
+                    .border(
+                        1.dp,
+                        if (isSelected) NeonCyan else Color.White.copy(alpha = 0.08f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onSelectServer(server.id) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = server.iconEmoji,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (isArabic) server.nameAr else server.nameEn,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                    color = if (isSelected) NeonCyan else PureWhite
+                                )
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "${server.location} • ${server.host}",
+                                fontSize = 10.sp,
+                                color = SlateBlueMuted
+                            )
+                        }
+                    }
+
+                    // Ping Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(pingColor.copy(alpha = 0.18f))
+                            .border(1.dp, pingColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = when {
+                                isFailed -> if (isArabic) "تعذر الاتصال" else "Failed"
+                                ping != null -> "${ping}ms"
+                                else -> "--"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            color = pingColor
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section 6: Policy & Honest Transparency Disclaimer (Rule 8)
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isArabic)
+                        "تنبيه: قياس زمن الاستجابة هو أداة فحص واختبار لجودة وسرعة الاتصال بنقاط الخوادم، ولا يغير مسار بيانات اللعبة أو يشكل اتصال VPN."
+                    else
+                        "Note: Ping testing is a benchmark tool for measuring connection latency to regional nodes; it does not reroute game packets or operate as a VPN.",
+                    fontSize = 10.sp,
+                    color = TextMuted,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 14.sp
+                )
             }
         }
     }
