@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GlassBoost</string>
+    <string name="notification_channel_name">GlassBoost Active Monitor</string>
+    <string name="notification_channel_desc">Shows real-time FPS, Ping, and Memory metrics overlay during gaming sessions</string>
+</resources>
