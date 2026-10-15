@@ -1,7 +1,6 @@
 package com.example.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -11,18 +10,19 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val GlassBoostColorScheme = darkColorScheme(
-    primary = RoyalGold,
+    primary = NeonCyan,
     onPrimary = ObsidianBlack,
-    primaryContainer = RoyalGoldDark,
-    onPrimaryContainer = RoyalGoldLight,
-    secondary = GlassBlue,
-    onSecondary = ObsidianBlack,
-    secondaryContainer = DeepGlassNavy,
-    onSecondaryContainer = GlassCyan,
-    tertiary = GlassCyan,
+    primaryContainer = DeepGlassNavy,
+    onPrimaryContainer = NeonCyan,
+    secondary = ElectricBlue,
+    onSecondary = PureWhite,
+    secondaryContainer = DarkSlate,
+    onSecondaryContainer = NeonCyan,
+    tertiary = RoyalGold,
+    onTertiary = ObsidianBlack,
     background = ObsidianBlack,
     onBackground = TextPrimary,
-    surface = DeepGraphite,
+    surface = ObsidianCharcoal,
     onSurface = TextPrimary,
     surfaceVariant = CardGlassSurface,
     onSurfaceVariant = TextSecondary,
@@ -31,7 +31,7 @@ private val GlassBoostColorScheme = darkColorScheme(
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = true, // Luxury dark glass mode is default
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

@@ -1,9 +1,12 @@
 package com.example.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +25,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,25 +51,36 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.PerformanceSnapshot
+import com.example.ui.theme.CardGlassBorder
 import com.example.ui.theme.CardGlassSurface
+import com.example.ui.theme.DarkSlate
 import com.example.ui.theme.DeepGlassNavy
+import com.example.ui.theme.DeepVoidBlack
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.GlassBlue
 import com.example.ui.theme.GlassCyan
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.ObsidianBlack
 import com.example.ui.theme.PerformanceGreen
 import com.example.ui.theme.PerformancePurple
 import com.example.ui.theme.PerformanceRed
+import com.example.ui.theme.PureWhite
 import com.example.ui.theme.RoyalGold
 import com.example.ui.theme.RoyalGoldDark
 import com.example.ui.theme.RoyalGoldLight
+import com.example.ui.theme.SlateBlueMuted
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -70,23 +93,23 @@ import kotlin.math.max
 fun GlassCard(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 20.dp,
-    borderColor: Color = GlassCyan.copy(alpha = 0.25f),
+    borderColor: Color = NeonCyan.copy(alpha = 0.25f),
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = modifier
             .shadow(
-                elevation = 12.dp,
+                elevation = 10.dp,
                 shape = RoundedCornerShape(cornerRadius),
-                ambientColor = GlassBlue.copy(alpha = 0.15f),
-                spotColor = RoyalGold.copy(alpha = 0.2f)
+                ambientColor = ElectricBlue.copy(alpha = 0.12f),
+                spotColor = NeonCyan.copy(alpha = 0.18f)
             )
             .clip(RoundedCornerShape(cornerRadius))
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
                         CardGlassSurface,
-                        DeepGlassNavy.copy(alpha = 0.85f)
+                        DeepGlassNavy.copy(alpha = 0.88f)
                     )
                 )
             )
@@ -95,8 +118,8 @@ fun GlassCard(
                 brush = Brush.linearGradient(
                     colors = listOf(
                         borderColor,
-                        Color.White.copy(alpha = 0.08f),
-                        RoyalGold.copy(alpha = 0.2f)
+                        PureWhite.copy(alpha = 0.08f),
+                        RoyalGold.copy(alpha = 0.15f)
                     )
                 ),
                 shape = RoundedCornerShape(cornerRadius)
@@ -104,6 +127,156 @@ fun GlassCard(
             .padding(16.dp)
     ) {
         content()
+    }
+}
+
+/**
+ * Primary Action Button (زر أساسي):
+ * Electric Cyan & Electric Blue Gradient Pill Button with white/black bold typography.
+ */
+@Composable
+fun GlassBoostPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true
+) {
+    val gradientBrush = if (enabled) {
+        Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
+    } else {
+        Brush.horizontalGradient(listOf(DarkSlate, Color.DarkGray))
+    }
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = if (enabled) 12.dp else 0.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = NeonCyan
+            )
+            .clip(RoundedCornerShape(24.dp))
+            .background(gradientBrush)
+            .border(
+                width = 1.dp,
+                color = if (enabled) PureWhite.copy(alpha = 0.35f) else Color.Transparent,
+                shape = RoundedCornerShape(24.dp)
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 22.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = ObsidianBlack,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                color = if (enabled) ObsidianBlack else SlateBlueMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * Secondary Action Button (زر ثانوي):
+ * Translucent glass button with subtle cyan stroke.
+ */
+@Composable
+fun GlassBoostSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(DeepVoidBlack.copy(alpha = 0.7f))
+            .border(1.dp, NeonCyan.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = NeonCyan,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = text,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = PureWhite,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * Shimmering luxury action button.
+ */
+@Composable
+fun LuxuryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isGold: Boolean = true,
+    enabled: Boolean = true
+) {
+    val bgBrush = if (isGold) {
+        Brush.horizontalGradient(
+            colors = listOf(RoyalGoldDark, RoyalGold, RoyalGoldLight)
+        )
+    } else {
+        Brush.horizontalGradient(
+            colors = listOf(DeepGlassNavy, ElectricBlue, NeonCyan)
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .shadow(8.dp, RoundedCornerShape(14.dp), spotColor = if (isGold) RoyalGold else ElectricBlue)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (enabled) bgBrush else Brush.horizontalGradient(listOf(Color.Gray, Color.DarkGray)))
+            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = if (isGold) Color.Black else Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -141,28 +314,21 @@ fun MetricCircularGauge(
                 val center = Offset(this.size.width / 2, this.size.height / 2)
 
                 // Background track
-                drawArc(
-                    color = Color.White.copy(alpha = 0.08f),
-                    startAngle = 140f,
-                    sweepAngle = 260f,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2, radius * 2),
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                drawCircle(
+                    color = DarkSlate.copy(alpha = 0.4f),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = strokeWidth)
                 )
 
-                // Active glowing arc
+                // Active glowing sweep
                 drawArc(
                     brush = Brush.sweepGradient(
-                        0f to color.copy(alpha = 0.6f),
-                        0.7f to color,
-                        1f to RoyalGoldLight
+                        listOf(color.copy(alpha = 0.4f), color, RoyalGold, color)
                     ),
-                    startAngle = 140f,
-                    sweepAngle = 260f * animatedProgress,
+                    startAngle = -90f,
+                    sweepAngle = animatedProgress * 360f,
                     useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2, radius * 2),
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }
@@ -170,23 +336,25 @@ fun MetricCircularGauge(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "${value.toInt()}",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
                     color = TextPrimary
                 )
                 Text(
                     text = unit,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
-                    color = color
+                    color = TextSecondary
                 )
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         Text(
             text = label,
             fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
@@ -194,96 +362,315 @@ fun MetricCircularGauge(
 }
 
 /**
- * Visual Canvas Chart rendering FPS, Ping, CPU, and GPU session trends
- * with cubic bezier curves, gradient fills, and touch inspector.
+ * Search Bar Glass from Screen 3 of the design preview.
+ */
+@Composable
+fun SearchBarGlass(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String = "بحث عن لعبة...",
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(CardGlassSurface)
+            .border(1.dp, CardGlassBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = SlateBlueMuted,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        fontSize = 13.sp,
+                        color = SlateBlueMuted
+                    )
+                }
+                androidx.compose.foundation.text.BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = PureWhite,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (query.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Clear",
+                    tint = SlateBlueMuted,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { onQueryChange("") }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Boost Success Dialog matching Screen 11 from GlassBoost UI Design System.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BoostSuccessDialog(
+    onDismiss: () -> Unit,
+    isArabic: Boolean = true
+) {
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .width(320.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(DeepVoidBlack, DeepGlassNavy)
+                    )
+                )
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        listOf(NeonCyan, Color.White.copy(alpha = 0.2f), RoyalGold)
+                    ),
+                    RoundedCornerShape(26.dp)
+                )
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Glowing Checkmark Circle
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(NeonCyan.copy(alpha = 0.35f), Color.Transparent)
+                            )
+                        )
+                        .border(2.dp, NeonCyan, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Success",
+                        tint = NeonCyan,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Text(
+                    text = if (isArabic) "تم التحسين بنجاح" else "Optimization Complete",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = PureWhite
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (isArabic) "تم تطبيق جميع الإعدادات بنجاح" else "All performance tweaks applied smoothly",
+                    fontSize = 12.sp,
+                    color = SlateBlueMuted,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // 2 Stat Tiles: +45% أداء أعلى & +38% استقرار الشبكة
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(CardGlassSurface)
+                            .border(1.dp, CardGlassBorder, RoundedCornerShape(14.dp))
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (isArabic) "أداء أعلى" else "Higher Perf",
+                                fontSize = 11.sp,
+                                color = SlateBlueMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "+45%",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonCyan
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(CardGlassSurface)
+                            .border(1.dp, CardGlassBorder, RoundedCornerShape(14.dp))
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (isArabic) "استقرار الشبكة" else "Network Stability",
+                                fontSize = 11.sp,
+                                color = SlateBlueMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "+38%",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = ElectricBlue
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // "حسنًا" Action Button
+                GlassBoostPrimaryButton(
+                    text = if (isArabic) "حسنًا" else "Got It",
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Loads and displays the real installed app icon from Android PackageManager
+ * or renders a stylized esports fallback icon.
+ */
+@Composable
+fun AppIconImage(
+    packageName: String,
+    modifier: Modifier = Modifier,
+    fallbackIcon: ImageVector = Icons.Default.Gamepad
+) {
+    val context = LocalContext.current
+    val bitmapState = remember(packageName) {
+        try {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            if (drawable is BitmapDrawable) {
+                drawable.bitmap.asImageBitmap()
+            } else {
+                val bmp = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bmp)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bmp.asImageBitmap()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    if (bitmapState != null) {
+        Image(
+            bitmap = bitmapState,
+            contentDescription = packageName,
+            modifier = modifier
+        )
+    } else {
+        Icon(
+            imageVector = fallbackIcon,
+            contentDescription = packageName,
+            tint = RoyalGold,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Interactive Performance Telemetry Chart
  */
 @Composable
 fun InteractivePerformanceChart(
     snapshots: List<PerformanceSnapshot>,
-    selectedMetric: String, // "FPS", "PING", "CPU", "GPU", "ALL"
-    modifier: Modifier = Modifier,
-    height: Dp = 220.dp
+    selectedMetric: String,
+    onSelectMetric: (String) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
-    if (snapshots.isEmpty()) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(height),
-            contentAlignment = Alignment.Center
+    var touchX by remember { mutableStateOf<Float?>(null) }
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "No telemetry data recorded yet\nلا توجد بيانات مسجلة للجلسة",
-                color = TextMuted,
-                textAlign = TextAlign.Center,
-                fontSize = 13.sp
+                text = "TELEMETRY METRICS",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = RoyalGold,
+                letterSpacing = 1.sp
             )
-        }
-        return
-    }
 
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
-
-    val primaryColor = when (selectedMetric) {
-        "FPS" -> PerformanceGreen
-        "PING" -> GlassBlue
-        "CPU" -> RoyalGold
-        "GPU" -> PerformancePurple
-        else -> PerformanceGreen
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        // Active point readout tooltip
-        val activeSnap = selectedIndex?.let { snapshots.getOrNull(it) } ?: snapshots.lastOrNull()
-        if (activeSnap != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("FPS", "PING", "CPU", "GPU", "ALL").forEach { metric ->
+                    val isSelected = selectedMetric == metric
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(primaryColor)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = when (selectedMetric) {
-                            "FPS" -> "${activeSnap.fps} FPS"
-                            "PING" -> "${activeSnap.pingMs} ms Latency"
-                            "CPU" -> "${activeSnap.cpuUsagePercent}% CPU Load"
-                            "GPU" -> "${activeSnap.gpuUsagePercent}% GPU Load"
-                            else -> "FPS: ${activeSnap.fps} | Ping: ${activeSnap.pingMs}ms"
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isSelected) NeonCyan else Color.Transparent)
+                            .border(1.dp, if (isSelected) NeonCyan else SlateBlueMuted.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                            .clickable { onSelectMetric(metric) }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = metric,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) ObsidianBlack else SlateBlueMuted
+                        )
+                    }
                 }
-
-                Text(
-                    text = "Temp: ${activeSnap.batteryTemp}°C (${activeSnap.thermalState})",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
             }
         }
 
-        BoxWithConstraints(
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(height)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.Black.copy(alpha = 0.35f))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                .pointerInput(snapshots) {
+                .height(160.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(CardGlassSurface)
+                .border(1.dp, CardGlassBorder, RoundedCornerShape(12.dp))
+                .pointerInput(Unit) {
                     detectTapGestures { offset ->
-                        val ratio = (offset.x / size.width).coerceIn(0f, 1f)
-                        val idx = (ratio * (snapshots.size - 1)).toInt()
-                        selectedIndex = idx
+                        touchX = offset.x
                     }
                 }
         ) {
@@ -291,7 +678,6 @@ fun InteractivePerformanceChart(
                 val canvasWidth = size.width
                 val canvasHeight = size.height
 
-                // Draw background horizontal grid lines
                 val gridLines = 4
                 for (i in 0..gridLines) {
                     val y = (canvasHeight / gridLines) * i
@@ -323,9 +709,7 @@ fun InteractivePerformanceChart(
                         Offset(x, y)
                     }
 
-                    // Stroke path
                     val path = Path()
-                    // Gradient fill under path
                     val fillPath = Path()
 
                     path.moveTo(points.first().x, points.first().y)
@@ -343,7 +727,6 @@ fun InteractivePerformanceChart(
                     fillPath.lineTo(points.last().x, canvasHeight)
                     fillPath.close()
 
-                    // Draw fill gradient
                     drawPath(
                         path = fillPath,
                         brush = Brush.verticalGradient(
@@ -354,28 +737,11 @@ fun InteractivePerformanceChart(
                         )
                     )
 
-                    // Draw line
                     drawPath(
                         path = path,
                         color = lineColor,
-                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
                     )
-
-                    // Highlight selected point or last point
-                    val highlightIdx = selectedIndex ?: (points.size - 1)
-                    val targetPt = points.getOrNull(highlightIdx)
-                    if (targetPt != null) {
-                        drawCircle(
-                            color = lineColor,
-                            radius = 6.dp.toPx(),
-                            center = targetPt
-                        )
-                        drawCircle(
-                            color = Color.White,
-                            radius = 3.dp.toPx(),
-                            center = targetPt
-                        )
-                    }
                 }
 
                 when (selectedMetric) {
@@ -400,7 +766,6 @@ fun InteractivePerformanceChart(
                         drawCurve(gpuValues, 100f, 0f, PerformancePurple, PerformancePurple)
                     }
                     "ALL" -> {
-                        // Multi-curve view
                         val fpsNorm = snapshots.map { (it.fps / 120f) * 100f }
                         val pingNorm = snapshots.map { (it.pingMs / 100f) * 100f }
                         val cpuNorm = snapshots.map { it.cpuUsagePercent.toFloat() }
@@ -411,46 +776,5 @@ fun InteractivePerformanceChart(
                 }
             }
         }
-    }
-}
-
-/**
- * Shimmering luxury action button.
- */
-@Composable
-fun LuxuryButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isGold: Boolean = true,
-    enabled: Boolean = true
-) {
-    val bgBrush = if (isGold) {
-        Brush.horizontalGradient(
-            colors = listOf(RoyalGoldDark, RoyalGold, RoyalGoldLight)
-        )
-    } else {
-        Brush.horizontalGradient(
-            colors = listOf(DeepGlassNavy, ElectricBlue, GlassCyan)
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = if (isGold) RoyalGold else GlassBlue)
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (enabled) bgBrush else Brush.horizontalGradient(listOf(Color.Gray, Color.DarkGray)))
-            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = if (isGold) Color.Black else Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            textAlign = TextAlign.Center
-        )
     }
 }

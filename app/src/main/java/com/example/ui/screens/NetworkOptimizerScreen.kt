@@ -1,6 +1,11 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,40 +26,57 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Router
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.PingServerTarget
 import com.example.ui.components.GlassCard
 import com.example.ui.theme.CardGlassSurface
+import com.example.ui.theme.DarkSlate
 import com.example.ui.theme.DeepGlassNavy
 import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.GlassBlue
-import com.example.ui.theme.GlassCyan
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.ObsidianBlack
 import com.example.ui.theme.PerformanceGreen
 import com.example.ui.theme.PerformanceRed
+import com.example.ui.theme.PureWhite
 import com.example.ui.theme.RoyalGold
-import com.example.ui.theme.RoyalGoldDark
-import com.example.ui.theme.RoyalGoldLight
+import com.example.ui.theme.SlateBlueMuted
+import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
+/**
+ * Screen 4 from GlassBoost UI Design System:
+ * شاشة تحسين الشبكة (Network Optimizer) with concentric radar pulse, connection status,
+ * gaming DNS toggles, and regional server live ping tests.
+ */
 @Composable
 fun NetworkOptimizerScreen(
     servers: List<PingServerTarget>,
@@ -66,12 +88,35 @@ fun NetworkOptimizerScreen(
     onTestAllServers: () -> Unit,
     onOptimizeNetworkRouting: () -> Unit
 ) {
+    var dnsOptimizationEnabled by remember { mutableStateOf(true) }
+    var connectionBoostEnabled by remember { mutableStateOf(true) }
+
+    val pulseTransition = rememberInfiniteTransition(label = "radar_pulse")
+    val radarScale1 by pulseTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "radar_1"
+    )
+    val radarAlpha1 by pulseTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "radar_alpha_1"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Header
+        // Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -79,17 +124,15 @@ fun NetworkOptimizerScreen(
         ) {
             Column {
                 Text(
-                    text = if (isArabic) "مُحسّن استجابة الشبكة والـ PING" else "NETWORK & PING LATENCY STABILIZER",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = RoyalGold
-                )
-                Text(
-                    text = if (isArabic) "خوادم الألعاب وتثبيت البنج" else "Multi-Region Game Servers",
+                    text = if (isArabic) "محسن الشبكة" else "Network Optimizer",
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Black,
-                    color = TextPrimary
+                    color = PureWhite
+                )
+                Text(
+                    text = if (isArabic) "تثبيت البنج وإزالة اللاغ والتقطيع" else "Low Ping Lock & Jitter Free",
+                    fontSize = 11.sp,
+                    color = SlateBlueMuted
                 )
             }
 
@@ -97,230 +140,294 @@ fun NetworkOptimizerScreen(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = "Test",
-                    tint = GlassCyan
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Main Lag Optimizer Action Card
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            borderColor = if (networkOptimizationDone) PerformanceGreen else GlassBlue
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(DeepGlassNavy)
-                            .border(1.dp, GlassCyan, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = "DNS",
-                            tint = GlassCyan,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isArabic) "تقليل اللاغ وحظر فقدان الحزم" else "Anti-Lag & Packet Stabilizer",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = if (isArabic)
-                                "توجيه الاتصال لأقرب نقطة ألعاب في الرياض • خفض التذبذب (Jitter)"
-                            else
-                                "Optimized routing to nearest Saudi ME cluster • Jitter: ±${overallJitterMs}ms",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(DeepGlassNavy, ElectricBlue, GlassCyan)
-                            )
-                        )
-                        .clickable(enabled = !isOptimizingNetwork, onClick = onOptimizeNetworkRouting)
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isOptimizingNetwork) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isArabic) "جاري ضبط الحزم وخوادم DNS..." else "Optimizing packet routes & DNS buffers...",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (networkOptimizationDone) Icons.Default.CheckCircle else Icons.Default.Bolt,
-                                contentDescription = "Optimize",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isArabic)
-                                    (if (networkOptimizationDone) "تم تفعيل مسار تقليل اللاغ بنجاح" else "تحسين إعدادات الشبكة ومسار DNS")
-                                else
-                                    (if (networkOptimizationDone) "Network Optimized & Latency Locked" else "Optimize Network & Gaming DNS"),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Regional Gaming Servers List
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isArabic) "قياس سرعة استجابة الخوادم (Live Ping)" else "REGIONAL GAMING NODES PING",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = RoyalGold,
-                letterSpacing = 1.sp
-            )
-            if (isTesting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = GlassCyan
+                    tint = NeonCyan
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Center Concentric Radar Circles with Wi-Fi Icon (Screen 4 Visual Centerpiece)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.size(170.dp)) {
+                val radius = size.minDimension / 2
+
+                // Concentric circles
+                drawCircle(
+                    color = ElectricBlue.copy(alpha = 0.15f),
+                    radius = radius * 0.95f,
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+                drawCircle(
+                    color = NeonCyan.copy(alpha = 0.25f),
+                    radius = radius * 0.70f,
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+                drawCircle(
+                    color = ElectricBlue.copy(alpha = 0.35f),
+                    radius = radius * 0.45f,
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+
+                // Animated pulsing radar wave
+                drawCircle(
+                    color = NeonCyan.copy(alpha = radarAlpha1),
+                    radius = radius * radarScale1,
+                    style = Stroke(width = 2.dp.toPx())
+                )
+            }
+
+            // Central Glowing Wi-Fi Icon Badge
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(ElectricBlue, DeepGlassNavy)
+                        )
+                    )
+                    .border(2.dp, NeonCyan, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Wifi,
+                    contentDescription = "Wi-Fi Radar",
+                    tint = PureWhite,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        // Connection Status Card (Matching Screen 4: "الاتصال محسن")
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            borderColor = if (networkOptimizationDone) PerformanceGreen else NeonCyan.copy(alpha = 0.5f)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (isArabic) "الاتصال محسن" else "Connection Optimized",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    color = PureWhite
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (isArabic) "تم تحسين استقرار الشبكة وزيادة السرعة" else "Network stability locked & latency reduced",
+                    fontSize = 11.sp,
+                    color = SlateBlueMuted
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Toggle 1: تحسين DNS
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = "DNS",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isArabic) "تحسين خوادم DNS" else "Gaming DNS Fastpath",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite
+                        )
+                    }
+
+                    Switch(
+                        checked = dnsOptimizationEnabled,
+                        onCheckedChange = { dnsOptimizationEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeonCyan,
+                            checkedTrackColor = DeepGlassNavy,
+                            uncheckedThumbColor = SlateBlueMuted,
+                            uncheckedTrackColor = DarkSlate
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Toggle 2: تسريع الاتصال
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "Speed",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isArabic) "تسريع الاتصال (TCP No-Delay)" else "Connection Accelerator",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite
+                        )
+                    }
+
+                    Switch(
+                        checked = connectionBoostEnabled,
+                        onCheckedChange = { connectionBoostEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeonCyan,
+                            checkedTrackColor = DeepGlassNavy,
+                            uncheckedThumbColor = SlateBlueMuted,
+                            uncheckedTrackColor = DarkSlate
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Optimize Action Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
+                        )
+                        .clickable(enabled = !isOptimizingNetwork, onClick = onOptimizeNetworkRouting),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isOptimizingNetwork) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = ObsidianBlack,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isArabic) "جاري ضبط المسارات..." else "Optimizing routes...",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ObsidianBlack
+                            )
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = "Optimize",
+                                tint = ObsidianBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isArabic) "تفعيل تحسين الشبكة الآن" else "Activate Network Boost",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ObsidianBlack
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Regional Ping Nodes List
+        Text(
+            text = if (isArabic) "خوادم الألعاب الإقليمية (Live Ping)" else "REGIONAL GAMING SERVERS",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = RoyalGold,
+            letterSpacing = 0.8.sp
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(servers) { server ->
                 val ping = server.currentPingMs
                 val pingColor = when {
-                    ping == null -> TextSecondary
+                    ping == null -> SlateBlueMuted
                     ping < 35 -> PerformanceGreen
-                    ping < 65 -> GlassBlue
+                    ping < 65 -> NeonCyan
                     else -> PerformanceRed
                 }
 
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    borderColor = if (server.id == "riyadh") RoyalGold.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CardGlassSurface)
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = server.iconEmoji,
-                                fontSize = 24.sp,
-                                modifier = Modifier.padding(end = 12.dp)
+                                fontSize = 18.sp
                             )
+                            Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (isArabic) server.nameAr else server.nameEn,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    if (server.id == "riyadh") {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(RoyalGold.copy(alpha = 0.2f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = if (isArabic) "الأسرع" else "FASTEST",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = RoyalGold
-                                            )
-                                        }
-                                    }
-                                }
                                 Text(
-                                    text = "${server.location} • ${server.host}",
-                                    fontSize = 11.sp,
-                                    color = TextSecondary
+                                    text = if (isArabic) server.nameAr else server.nameEn,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PureWhite
+                                )
+                                Text(
+                                    text = server.location,
+                                    fontSize = 10.sp,
+                                    color = SlateBlueMuted
                                 )
                             }
                         }
 
-                        // Ping readout badge
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color.Black.copy(alpha = 0.4f))
-                                .border(1.dp, pingColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(pingColor.copy(alpha = 0.18f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            if (ping != null) {
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "$ping ms",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = pingColor
-                                    )
-                                    Text(
-                                        text = "±${server.jitterMs ?: 2}ms jitter",
-                                        fontSize = 9.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = "Testing...",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
-                            }
+                            Text(
+                                text = if (ping != null) "${ping}ms" else "--",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = pingColor
+                            )
                         }
                     }
                 }

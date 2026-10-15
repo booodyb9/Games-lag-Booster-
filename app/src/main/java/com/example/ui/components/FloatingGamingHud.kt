@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -32,17 +31,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Thermostat
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,30 +57,37 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.CardGlassBorder
+import com.example.ui.theme.CardGlassSurface
+import com.example.ui.theme.DarkSlate
 import com.example.ui.theme.DeepGlassNavy
-import com.example.ui.theme.GlassBlue
-import com.example.ui.theme.GlassCyan
-import com.example.ui.theme.GoldGlow
+import com.example.ui.theme.DeepVoidBlack
+import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.ObsidianBlack
 import com.example.ui.theme.PerformanceGreen
 import com.example.ui.theme.PerformanceRed
+import com.example.ui.theme.PureWhite
 import com.example.ui.theme.RoyalGold
-import com.example.ui.theme.RoyalGoldLight
+import com.example.ui.theme.SlateBlueMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Luxury Transparent Floating Gaming HUD with:
- * 1. Compact Floating Circle Bubble mode (دائرة صغيرة شفافة).
- * 2. Tap to expand/collapse into full stats HUD.
- * 3. Drag to side & edge docking (إخفاء وسحب في جانب الشاشة).
- * 4. Real-time FPS, Ping, Thermals, One-tap Cache Cleaner, and Speed Boost.
+ * Screen 6 & Screen 9 from GlassBoost UI Design System:
+ * اللوحة العائمة أثناء اللعب (In-Game Floating HUD) & اللوحة العائمة (تصميم جديد)
+ * Features:
+ * 1. Mode A: Compact Floating Bubble (دائرة صغيرة شفافة يمكن سحبها وإخفاؤها في حافة الشاشة).
+ * 2. Mode B: Full Gaming HUD with the 4 glowing tiles (Boost, الشبكة, الحرارة, الذاكرة),
+ *    real-time telemetry, brightness/opacity slider, and instant clean cache button.
  */
 @Composable
 fun FloatingGamingHud(
@@ -94,21 +101,21 @@ fun FloatingGamingHud(
     cachedProcessesCount: Int = 4,
     cachedMemoryMb: Long = 480L,
     initialBubbleMode: Boolean = true,
+    isArabic: Boolean = true,
     onSpeedBoost: () -> Unit,
     onClearCache: () -> Unit = onSpeedBoost,
     onCoolDown: () -> Unit = onClearCache,
     onClose: () -> Unit,
+    onOpacityChanged: (Float) -> Unit = {},
     onDragDelta: (Float, Float) -> Unit = { _, _ -> },
     onDragEnd: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isBubbleMode by remember { mutableStateOf(initialBubbleMode) }
-    var isExpandedDetails by remember { mutableStateOf(false) }
     var isBoosting by remember { mutableStateOf(false) }
     var isClearingCache by remember { mutableStateOf(false) }
-    var isCoolingDown by remember { mutableStateOf(false) }
-    var feedbackText by remember { mutableStateOf<String?>(null) }
+    var hudOpacitySlider by remember(opacity) { mutableStateOf(opacity) }
     var isThermalAlertDismissed by remember { mutableStateOf(false) }
 
     val isOverheating = batteryTemp >= thermalSafetyThreshold
@@ -117,62 +124,52 @@ fun FloatingGamingHud(
     val pulseTransition = rememberInfiniteTransition(label = "hud_pulse")
     val pulseScale by pulseTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.09f,
+        targetValue = 1.08f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1100),
+            animation = tween(1200),
             repeatMode = RepeatMode.Reverse
         ),
         label = "hud_scale"
     )
 
-    val ringScale by pulseTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.14f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ring_scale"
-    )
-
     val fpsColor = when {
         fps >= 55 -> PerformanceGreen
-        fps >= 40 -> GlassBlue
+        fps >= 40 -> NeonCyan
         else -> PerformanceRed
     }
 
     val pingColor = when {
         pingMs < 35 -> PerformanceGreen
-        pingMs < 65 -> GlassBlue
+        pingMs < 65 -> NeonCyan
         else -> PerformanceRed
     }
 
     val tempColor = when {
         batteryTemp >= thermalSafetyThreshold -> PerformanceRed
-        batteryTemp >= 37.0f -> Color(0xFFF59E0B)
+        batteryTemp >= 38.0f -> RoyalGold
         else -> PerformanceGreen
     }
 
-    val safeOpacity = opacity.coerceIn(0.20f, 0.95f)
+    val safeOpacity = hudOpacitySlider.coerceIn(0.20f, 0.98f)
 
     AnimatedContent(
         targetState = isBubbleMode,
         transitionSpec = {
-            (fadeIn(tween(250)) + expandHorizontally()) togetherWith
-                    (fadeOut(tween(200)) + shrinkHorizontally())
+            (fadeIn(tween(200)) + expandHorizontally()) togetherWith
+                    (fadeOut(tween(180)) + shrinkHorizontally())
         },
         label = "hud_mode_animation",
         modifier = modifier
     ) { bubbleState ->
         if (bubbleState) {
-            // MODE A: COMPACT TRANSPARENT CIRCLE BUBBLE (دائرة صغيرة شفافة قابلة للسحب والإخفاء)
+            // MODE A: COMPACT FLOATING CIRCLE BUBBLE (دائرة صغيرة شفافة قابلة للسحب والإخفاء)
             Box(
                 modifier = Modifier
-                    .size(54.dp)
+                    .size(52.dp)
                     .shadow(
-                        elevation = 12.dp,
+                        elevation = 14.dp,
                         shape = CircleShape,
-                        spotColor = if (isOverheating) PerformanceRed else GlassCyan.copy(alpha = 0.4f)
+                        spotColor = if (isOverheating) PerformanceRed else NeonCyan.copy(alpha = 0.5f)
                     )
                     .clip(CircleShape)
                     .background(
@@ -187,10 +184,10 @@ fun FloatingGamingHud(
                         width = 1.5.dp,
                         brush = Brush.sweepGradient(
                             listOf(
-                                if (isOverheating) PerformanceRed else RoyalGold,
-                                GlassCyan,
-                                if (isOverheating) PerformanceRed else RoyalGoldLight,
-                                if (isOverheating) PerformanceRed else RoyalGold
+                                if (isOverheating) PerformanceRed else NeonCyan,
+                                ElectricBlue,
+                                RoyalGold,
+                                if (isOverheating) PerformanceRed else NeonCyan
                             )
                         ),
                         shape = CircleShape
@@ -207,31 +204,16 @@ fun FloatingGamingHud(
                     .clickable { isBubbleMode = false }, // Tap to expand into full HUD
                 contentAlignment = Alignment.Center
             ) {
-                // Subtle glowing background ring
-                Box(
-                    modifier = Modifier
-                        .scale(ringScale)
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .border(
-                            1.dp,
-                            (if (isOverheating) PerformanceRed else GlassCyan).copy(alpha = 0.3f),
-                            CircleShape
-                        )
-                )
-
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (isOverheating) Icons.Default.LocalFireDepartment else Icons.Default.Bolt,
-                            contentDescription = "Stats",
-                            tint = if (isOverheating) PerformanceRed else GoldGlow,
-                            modifier = Modifier.size(11.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isOverheating) Icons.Default.LocalFireDepartment else Icons.Default.Bolt,
+                        contentDescription = "Stats",
+                        tint = if (isOverheating) PerformanceRed else NeonCyan,
+                        modifier = Modifier.size(13.dp)
+                    )
                     Text(
                         text = "$fps",
                         fontSize = 13.sp,
@@ -249,19 +231,20 @@ fun FloatingGamingHud(
                 }
             }
         } else {
-            // MODE B: EXPANDED TRANSLUCENT HUD PANEL (لوحة شفافة أنيقة قابلة للطي للدائرة)
+            // MODE B: FULL GAMING HUD (Matching Screen 6 & Screen 9 in UI Design Preview)
             Box(
                 modifier = Modifier
+                    .width(310.dp)
                     .shadow(
-                        elevation = 14.dp,
-                        shape = RoundedCornerShape(22.dp),
-                        spotColor = if (isOverheating) PerformanceRed.copy(alpha = 0.5f) else GlassCyan.copy(alpha = 0.35f)
+                        elevation = 16.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        spotColor = if (isOverheating) PerformanceRed else NeonCyan.copy(alpha = 0.35f)
                     )
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                ObsidianBlack.copy(alpha = safeOpacity),
+                            listOf(
+                                DeepVoidBlack.copy(alpha = safeOpacity),
                                 DeepGlassNavy.copy(alpha = safeOpacity)
                             )
                         )
@@ -269,378 +252,296 @@ fun FloatingGamingHud(
                     .border(
                         width = 1.2.dp,
                         brush = Brush.linearGradient(
-                            colors = listOf(
-                                GlassCyan.copy(alpha = 0.7f),
-                                Color.White.copy(alpha = 0.12f * safeOpacity),
-                                RoyalGold.copy(alpha = 0.5f * safeOpacity)
+                            listOf(
+                                NeonCyan.copy(alpha = 0.65f),
+                                PureWhite.copy(alpha = 0.12f),
+                                RoyalGold.copy(alpha = 0.35f)
                             )
                         ),
-                        shape = RoundedCornerShape(22.dp)
+                        shape = RoundedCornerShape(24.dp)
                     )
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
+                    .padding(14.dp)
             ) {
-                Column {
-                    // Thermal Overheat Alert Banner
-                    AnimatedVisibility(
-                        visible = shouldShowThermalAlert,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Header: "< لوحة الألعاب العائمة" + Close & Minimize
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 6.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(PerformanceRed.copy(alpha = 0.4f))
-                                .border(1.dp, PerformanceRed, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.clickable { isBubbleMode = true }
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = "Minimize",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isArabic) "لوحة الألعاب العائمة" else "Floating Gaming HUD",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PureWhite
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Minimize button
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(DarkSlate.copy(alpha = 0.6f))
+                                    .clickable { isBubbleMode = true },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Default.LocalFireDepartment,
-                                    contentDescription = "Alert",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "🔥 ${batteryTemp}°C OVERHEAT",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White
+                                    imageVector = Icons.Default.ChevronLeft,
+                                    contentDescription = "Dock",
+                                    tint = PureWhite,
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(GlassCyan)
-                                        .clickable {
-                                            coroutineScope.launch {
-                                                isCoolingDown = true
-                                                onCoolDown()
-                                                delay(1200)
-                                                isCoolingDown = false
-                                                isThermalAlertDismissed = true
-                                            }
-                                        }
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text("COOL", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            // Close button
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(DarkSlate.copy(alpha = 0.6f))
+                                    .clickable { onClose() },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Dismiss",
-                                    tint = Color.White,
-                                    modifier = Modifier
-                                        .size(13.dp)
-                                        .clickable { isThermalAlertDismissed = true }
+                                    contentDescription = "Close",
+                                    tint = PerformanceRed,
+                                    modifier = Modifier.size(13.dp)
                                 )
                             }
                         }
                     }
 
-                    // Main HUD Control Row
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // Collapse to Circle Bubble Button (⚪ زر التصغير للدائرة)
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(RoyalGold.copy(alpha = 0.25f))
-                                .border(1.dp, RoyalGold, CircleShape)
-                                .clickable { isBubbleMode = true }, // Click to collapse into circle bubble
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronLeft,
-                                contentDescription = "Collapse to circle",
-                                tint = RoyalGold,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        // Drag Handle
-                        Box(
-                            modifier = Modifier
-                                .width(6.dp)
-                                .height(22.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(Color.White.copy(alpha = 0.25f))
-                                .pointerInput(Unit) {
-                                    detectDragGestures(
-                                        onDragEnd = { onDragEnd() },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            onDragDelta(dragAmount.x, dragAmount.y)
-                                        }
-                                    )
+                    // Screen 9 & 6: Row of 4 Primary Floating Tiles (Boost, الشبكة, الحرارة, الذاكرة)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Tile 1: Boost (⚡)
+                        HudActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Bolt,
+                            label = "Boost",
+                            subText = if (isBoosting) "DONE" else "$fps FPS",
+                            isActive = true,
+                            accentColor = NeonCyan,
+                            onClick = {
+                                coroutineScope.launch {
+                                    isBoosting = true
+                                    onSpeedBoost()
+                                    delay(1200)
+                                    isBoosting = false
                                 }
+                            }
                         )
 
-                        // FPS Chip
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(Color.Black.copy(alpha = 0.45f * safeOpacity))
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .scale(pulseScale)
-                                    .size(5.dp)
-                                    .clip(CircleShape)
-                                    .background(fpsColor)
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(
-                                text = "$fps",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = fpsColor
-                            )
-                            Text(
-                                text = " FPS",
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextSecondary
-                            )
-                        }
+                        // Tile 2: الشبكة (WiFi)
+                        HudActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Wifi,
+                            label = if (isArabic) "الشبكة" else "Network",
+                            subText = "${pingMs}ms",
+                            isActive = pingMs < 50,
+                            accentColor = pingColor,
+                            onClick = { }
+                        )
 
-                        // Ping Chip
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(Color.Black.copy(alpha = 0.45f * safeOpacity))
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(5.dp)
-                                    .clip(CircleShape)
-                                    .background(pingColor)
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(
-                                text = "$pingMs",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = pingColor
-                            )
-                            Text(
-                                text = "ms",
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextSecondary
-                            )
-                        }
+                        // Tile 3: الحرارة (Thermometer)
+                        HudActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = if (isOverheating) Icons.Default.LocalFireDepartment else Icons.Default.Thermostat,
+                            label = if (isArabic) "الحرارة" else "Temp",
+                            subText = "${batteryTemp.toInt()}°C",
+                            isActive = !isOverheating,
+                            accentColor = tempColor,
+                            onClick = { onCoolDown() }
+                        )
 
-                        // Temp Chip
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(Color.Black.copy(alpha = 0.45f * safeOpacity))
-                                .padding(horizontal = 5.dp, vertical = 3.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isOverheating) Icons.Default.LocalFireDepartment else Icons.Default.Thermostat,
-                                contentDescription = "Temp",
-                                tint = tempColor,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "${batteryTemp.toInt()}°C",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = tempColor
-                            )
-                        }
-
-                        // ONE-TAP CLEAR CACHE BUTTON
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        if (isClearingCache)
-                                            listOf(PerformanceGreen, Color(0xFF059669))
-                                        else
-                                            listOf(DeepGlassNavy, GlassBlue.copy(alpha = 0.85f))
-                                    )
-                                )
-                                .border(1.dp, GlassCyan.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                                .clickable(enabled = !isClearingCache && !isBoosting) {
-                                    coroutineScope.launch {
-                                        isClearingCache = true
-                                        feedbackText = "-${cachedMemoryMb}MB"
-                                        onClearCache()
-                                        delay(1200)
-                                        isClearingCache = false
-                                        feedbackText = null
-                                    }
-                                }
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isClearingCache) {
-                                Text(
-                                    text = feedbackText ?: "OK",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.CleaningServices,
-                                        contentDescription = "Clear",
-                                        tint = GlassCyan,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        text = "CACHE",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
+                        // Tile 4: الذاكرة (Memory)
+                        HudActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Memory,
+                            label = if (isArabic) "الذاكرة" else "RAM",
+                            subText = "$cpuPercent%",
+                            isActive = true,
+                            accentColor = ElectricBlue,
+                            onClick = {
+                                coroutineScope.launch {
+                                    isClearingCache = true
+                                    onClearCache()
+                                    delay(1000)
+                                    isClearingCache = false
                                 }
                             }
-                        }
-
-                        // ONE-TAP SPEED BOOST BUTTON
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        if (isBoosting)
-                                            listOf(PerformanceGreen, GlassCyan)
-                                        else
-                                            listOf(RoyalGold, Color(0xFFFFD54F))
-                                    )
-                                )
-                                .clickable(enabled = !isBoosting && !isClearingCache) {
-                                    coroutineScope.launch {
-                                        isBoosting = true
-                                        feedbackText = "TURBO"
-                                        onSpeedBoost()
-                                        delay(1200)
-                                        isBoosting = false
-                                        feedbackText = null
-                                    }
-                                }
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isBoosting) {
-                                Text(
-                                    text = "BOOSTED",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.Black
-                                )
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bolt,
-                                        contentDescription = "Boost",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        text = "BOOST",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.Black
-                                    )
-                                }
-                            }
-                        }
-
-                        // Toggle Expand Details
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
-                                .clickable { isExpandedDetails = !isExpandedDetails },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (isExpandedDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Expand",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                        }
-
-                        // Dismiss/Close Button
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
-                                .clickable { onClose() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = PerformanceRed.copy(alpha = 0.8f),
-                                modifier = Modifier.size(11.dp)
-                            )
-                        }
+                        )
                     }
 
-                    // Expanded Secondary Info Row
-                    AnimatedVisibility(
-                        visible = isExpandedDetails,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Screen 6: Opacity / Brightness Slider ("سطوع / شفافية")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.padding(top = 6.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(Color.White.copy(alpha = 0.1f))
+                        Text(
+                            text = if (isArabic) "سطوع / شفافية" else "HUD Opacity",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = SlateBlueMuted
+                        )
+                        Text(
+                            text = "${(hudOpacitySlider * 100).toInt()}%",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonCyan
+                        )
+                    }
+
+                    Slider(
+                        value = hudOpacitySlider,
+                        onValueChange = {
+                            hudOpacitySlider = it
+                            onOpacityChanged(it)
+                        },
+                        valueRange = 0.30f..1.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = NeonCyan,
+                            activeTrackColor = NeonCyan,
+                            inactiveTrackColor = DarkSlate
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Drag & Quick Clean Footer
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Quick Trash / Clean Action
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CardGlassSurface)
+                                .border(1.dp, CardGlassBorder, RoundedCornerShape(8.dp))
+                                .clickable {
+                                    coroutineScope.launch {
+                                        onClearCache()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Purge Cache",
+                                tint = SlateBlueMuted,
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "CPU: $cpuPercent% • RAM: ${ramUsedMb}MB",
-                                    fontSize = 10.sp,
-                                    color = TextSecondary
-                                )
-                                Text(
-                                    text = "Dock to Side ➔",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GlassCyan,
-                                    modifier = Modifier.clickable { isBubbleMode = true }
+                        }
+
+                        // Hint: "اسحب للإخفاء ⨀"
+                        Text(
+                            text = if (isArabic) "اسحب في الحافة للإخفاء" else "Drag to edge to hide",
+                            fontSize = 10.sp,
+                            color = SlateBlueMuted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragEnd = { onDragEnd() },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        onDragDelta(dragAmount.x, dragAmount.y)
+                                    }
                                 )
                             }
-                        }
+                        )
+
+                        // Mode indicator
+                        Text(
+                            text = if (isArabic) "وضع الأداء ▾" else "Ultra ▾",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = RoyalGold
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Action Tile Component used in Floating HUD (Screen 9 & Screen 6)
+ */
+@Composable
+private fun HudActionTile(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    subText: String,
+    isActive: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (isActive) DeepGlassNavy.copy(alpha = 0.8f) else CardGlassSurface
+            )
+            .border(
+                width = 1.dp,
+                color = if (isActive) accentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = accentColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = subText,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                color = PureWhite
+            )
+            Text(
+                text = label,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Medium,
+                color = SlateBlueMuted
+            )
         }
     }
 }

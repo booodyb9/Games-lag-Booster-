@@ -249,13 +249,13 @@ class GamingSessionStorage(private val context: Context) {
             }
         }
 
-        // Always provide premier competitive titles for the user to configure and launch
+        // Always provide premier competitive titles matching Screen 3 in design preview
         val premierGames = listOf(
-            GameItem("com.tencent.ig", "PUBG Mobile (ببجي موبايل)", false, 90, "FHD (1080p)", true, "10 mins ago"),
-            GameItem("com.activision.callofduty.warzone", "COD: Warzone Mobile (كول أوف ديوتي)", false, 120, "2K QHD", true, "1 hour ago"),
-            GameItem("com.dts.freefireth", "Free Fire MAX (فري فاير ماكس)", false, 60, "FHD (1080p)", true, "Yesterday"),
-            GameItem("com.miHoYo.GenshinImpact", "Genshin Impact (قينشين إمباكت)", false, 60, "Extreme High", true, "3 days ago"),
-            GameItem("com.roblox.client", "Roblox (روبلوكس)", false, 60, "Dynamic Res", true, "Last week")
+            GameItem("com.tencent.ig", "PUBG Mobile", false, 90, "FHD (1080p)", true, "10 mins ago"),
+            GameItem("com.activision.callofduty.warzone", "Call of Duty Mobile", false, 120, "2K QHD", true, "1 hour ago"),
+            GameItem("com.dts.freefireth", "Free Fire", false, 60, "FHD (1080p)", true, "Yesterday"),
+            GameItem("com.miHoYo.GenshinImpact", "Genshin Impact", false, 60, "Extreme High", true, "3 days ago"),
+            GameItem("jp.konami.pesam", "eFootball™", false, 90, "FHD (1080p)", true, "Recently")
         )
 
         val merged = (premierGames + list).distinctBy { it.packageName }
