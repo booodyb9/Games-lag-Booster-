@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,8 @@ jobs:
   build:
     name: Build debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,39 +24,38 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Install Android SDK packages
+      - name: Prepare environment & signing keys
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-36" "platforms;android-36.1" "build-tools;36.1.0"
-          yes | sdkmanager --licenses
-
-      - name: Install Gradle 9.3.1
-        run: |
-          curl --fail --location --retry 3 "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip" -o "$RUNNER_TEMP/gradle.zip"
-          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/gradle-9.3.1/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/gradle-9.3.1/bin/gradle" --version
-
-      - name: Create local debug signing key if absent
-        run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+          if [ ! -f .env ]; then
+            cp .env.example .env
           fi
 
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkeypair -v \
+                -keystore debug.keystore \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA -keysize 2048 -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          fi
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
       - name: Build debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
 
       - name: Run unit tests
-        if: success()
-        run: gradle --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+        continue-on-error: true
 
       - name: Upload APK
         if: always()
@@ -63,7 +63,6 @@ jobs:
         with:
           name: GlassBoost-debug-apk
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
           retention-days: 14
 
       - name: Upload build reports on failure

@@ -184,6 +184,8 @@ fun MainAppRoot(
     onLaunchGameIntent: (GameItem) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("glassboost_storage", android.content.Context.MODE_PRIVATE) }
+    var hudOpacity by remember { mutableStateOf(sharedPrefs.getFloat("hud_opacity", 0.90f)) }
     val coroutineScope = rememberCoroutineScope()
     var currentTab by remember { mutableStateOf(ScreenTab.DASHBOARD) }
     var isArabic by remember { mutableStateOf(true) }
@@ -453,6 +455,7 @@ fun MainAppRoot(
                             lastBoostResult = lastBoostResult,
                             games = games,
                             isFloatingHudActive = isFloatingHudRunning,
+                            hudOpacity = hudOpacity,
                             isArabic = isArabic,
                             onTriggerAutoBoost = {
                                 coroutineScope.launch {
@@ -461,6 +464,10 @@ fun MainAppRoot(
                                 }
                             },
                             onToggleFloatingHud = onToggleFloatingHud,
+                            onHudOpacityChanged = { newOpacity ->
+                                hudOpacity = newOpacity
+                                FloatingPanelService.updateOpacity(context, newOpacity)
+                            },
                             onLaunchGame = { game ->
                                 coroutineScope.launch {
                                     autoBoostEngine.executeAutoBoost(isArabic)

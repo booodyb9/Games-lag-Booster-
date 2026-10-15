@@ -1,6 +1,5 @@
 package com.example
 
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,71 +7,93 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.WindowManager
-import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.engine.AutoBoostEngine
 import com.example.engine.PerformanceMonitorEngine
+import com.example.ui.components.FloatingGamingHud
+import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Foreground Service that renders a draggable, luxury glass floating HUD overlay
- * over running games to display live FPS, Ping latency, CPU load, and Quick Boost.
+ * Android Foreground Service hosting a pure Jetpack Compose Floating Gaming HUD
+ * with real-time FPS, Ping, thermal overheat monitoring, and customizable opacity.
  */
 class FloatingPanelService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var windowManager: WindowManager? = null
-    private var floatingView: View? = null
-    private var monitorEngine: PerformanceMonitorEngine? = null
+    private var composeView: ComposeView? = null
+    private var lifecycleOwner: FloatingLifecycleOwner? = null
 
-    private var fpsTextView: TextView? = null
-    private var pingTextView: TextView? = null
-    private var cpuTextView: TextView? = null
+    private var monitorEngine: PerformanceMonitorEngine? = null
+    private var autoBoostEngine: AutoBoostEngine? = null
+
+    private val _hudOpacity = MutableStateFlow(0.90f)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         startForegroundServiceNotification()
+
+        val prefs = getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
+        _hudOpacity.value = prefs.getFloat("hud_opacity", 0.90f)
+
         monitorEngine = PerformanceMonitorEngine(applicationContext)
+        autoBoostEngine = AutoBoostEngine(applicationContext)
         monitorEngine?.start(serviceScope)
 
         if (Settings.canDrawOverlays(this)) {
-            setupFloatingView()
+            setupComposeFloatingOverlay()
         }
+    }
 
-        observeMetrics()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val opacity = intent?.getFloatExtra(EXTRA_OPACITY, -1f) ?: -1f
+        if (opacity in 0.2f..1.0f) {
+            _hudOpacity.value = opacity
+        }
+        return START_STICKY
     }
 
     private fun startForegroundServiceNotification() {
-        val channelId = "glassboost_hud_channel"
+        val channelId = "glassboost_compose_hud"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "GlassBoost Gaming Monitor",
+                "GlassBoost Floating HUD",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows real-time FPS, Ping, and system metrics during games"
+                description = "Real-time Compose FPS, Ping, and Memory HUD over games"
                 setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
@@ -89,8 +110,8 @@ class FloatingPanelService : Service() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("GlassBoost • Active Gaming Monitor")
-            .setContentText("FPS: 60 • Ping: 24ms • Turbo Engine Active")
+            .setContentTitle("GlassBoost • Compose Floating HUD")
+            .setContentText("Active FPS, Ping & Thermal monitor running over games")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -99,8 +120,7 @@ class FloatingPanelService : Service() {
         startForeground(1001, notification)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupFloatingView() {
+    private fun setupComposeFloatingOverlay() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -120,135 +140,136 @@ class FloatingPanelService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 80
-            y = 180
+            y = 200
         }
 
-        // Luxury Dark Frosted Glass Container
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(32, 18, 32, 18)
-            elevation = 16f
-
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 48f
-                setColor(Color.parseColor("#E60B0F19")) // 90% obsidian glass
-                setStroke(3, Color.parseColor("#4D00D2FF")) // Cyan glass specular border
-            }
-            background = bg
+        val owner = FloatingLifecycleOwner().apply {
+            onCreate()
+            onResume()
         }
+        lifecycleOwner = owner
 
-        // Logo indicator
-        val logoDot = View(this).apply {
-            val size = 20
-            layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setMargins(0, 0, 16, 0)
-            }
-            val dotBg = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#D4AF37")) // Royal gold
-            }
-            background = dotBg
-        }
-        container.addView(logoDot)
+        val view = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
 
-        // FPS Badge
-        fpsTextView = TextView(this).apply {
-            text = "60 FPS"
-            setTextColor(Color.parseColor("#10B981")) // Performance Green
-            textSize = 13f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 20, 0)
-        }
-        container.addView(fpsTextView)
+            setContent {
+                MyApplicationTheme {
+                    val metricsState by (monitorEngine?.currentMetrics ?: return@MyApplicationTheme).collectAsState()
+                    val opacityState by _hudOpacity.collectAsState()
 
-        // Ping Badge
-        pingTextView = TextView(this).apply {
-            text = "24ms"
-            setTextColor(Color.parseColor("#00D2FF")) // Glass Cyan
-            textSize = 13f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 20, 0)
-        }
-        container.addView(pingTextView)
-
-        // CPU Badge
-        cpuTextView = TextView(this).apply {
-            text = "CPU 28%"
-            setTextColor(Color.parseColor("#F8FAFC"))
-            textSize = 12f
-            setPadding(0, 0, 16, 0)
-        }
-        container.addView(cpuTextView)
-
-        // Close pill button
-        val closeBtn = TextView(this).apply {
-            text = "✕"
-            setTextColor(Color.parseColor("#94A3B8"))
-            textSize = 13f
-            setPadding(12, 0, 4, 0)
-            setOnClickListener {
-                stopSelf()
+                    FloatingGamingHud(
+                        fps = metricsState.fps,
+                        pingMs = metricsState.pingMs,
+                        cpuPercent = metricsState.cpuUsagePercent,
+                        ramUsedMb = metricsState.ramUsedMb,
+                        batteryTemp = metricsState.batteryTemp,
+                        thermalSafetyThreshold = 40.0f,
+                        opacity = opacityState,
+                        onSpeedBoost = {
+                            serviceScope.launch {
+                                autoBoostEngine?.executeAutoBoost(false)
+                            }
+                        },
+                        onClearCache = {
+                            serviceScope.launch {
+                                autoBoostEngine?.clearCachedBackgroundMemory()
+                            }
+                        },
+                        onCoolDown = {
+                            serviceScope.launch {
+                                autoBoostEngine?.clearCachedBackgroundMemory()
+                            }
+                        },
+                        onClose = {
+                            stopSelf()
+                        },
+                        onDragDelta = { dx, dy ->
+                            params.x = (params.x + dx.toInt()).coerceAtLeast(0)
+                            params.y = (params.y + dy.toInt()).coerceAtLeast(0)
+                            try {
+                                windowManager?.updateViewLayout(this@apply, params)
+                            } catch (_: Exception) {}
+                        }
+                    )
+                }
             }
         }
-        container.addView(closeBtn)
 
-        // Touch & Drag Handling
+        // Add touch listener for seamless edge dragging
         var initialX = 0
         var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
+        var touchStartX = 0f
+        var touchStartY = 0f
 
-        container.setOnTouchListener { _, event ->
+        view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     initialX = params.x
                     initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    true
+                    touchStartX = event.rawX
+                    touchStartY = event.rawY
+                    false
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = initialX + (event.rawX - initialTouchX).toInt()
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager?.updateViewLayout(container, params)
-                    true
+                    val dx = (event.rawX - touchStartX).toInt()
+                    val dy = (event.rawY - touchStartY).toInt()
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                        params.x = initialX + dx
+                        params.y = initialY + dy
+                        try {
+                            windowManager?.updateViewLayout(view, params)
+                        } catch (_: Exception) {}
+                    }
+                    false
                 }
                 else -> false
             }
         }
 
-        floatingView = container
-        try {
-            windowManager?.addView(floatingView, params)
-        } catch (_: Exception) {}
-    }
+        composeView = view
 
-    private fun observeMetrics() {
-        serviceScope.launch {
-            monitorEngine?.currentMetrics?.collectLatest { snapshot ->
-                fpsTextView?.text = "${snapshot.fps} FPS"
-                pingTextView?.text = "${snapshot.pingMs}ms"
-                cpuTextView?.text = "CPU ${snapshot.cpuUsagePercent}%"
-            }
-        }
+        try {
+            windowManager?.addView(composeView, params)
+        } catch (_: Exception) {}
     }
 
     override fun onDestroy() {
         super.onDestroy()
         monitorEngine?.stop()
         serviceScope.cancel()
-        if (floatingView != null && windowManager != null) {
+
+        lifecycleOwner?.onDestroy()
+        lifecycleOwner = null
+
+        if (composeView != null && windowManager != null) {
             try {
-                windowManager?.removeView(floatingView)
+                windowManager?.removeView(composeView)
             } catch (_: Exception) {}
+            composeView = null
         }
     }
 
     companion object {
+        const val EXTRA_OPACITY = "extra_hud_opacity"
+
         fun start(context: Context) {
             val intent = Intent(context, FloatingPanelService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun updateOpacity(context: Context, opacity: Float) {
+            val prefs = context.getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
+            prefs.edit().putFloat("hud_opacity", opacity).apply()
+            val intent = Intent(context, FloatingPanelService::class.java).apply {
+                putExtra(EXTRA_OPACITY, opacity)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -260,5 +281,34 @@ class FloatingPanelService : Service() {
             val intent = Intent(context, FloatingPanelService::class.java)
             context.stopService(intent)
         }
+    }
+}
+
+/**
+ * Custom LifecycleOwner, ViewModelStoreOwner, and SavedStateRegistryOwner implementation
+ * for hosting Jetpack Compose inside an Android Service window.
+ */
+class FloatingLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val store = ViewModelStore()
+    private val controller = SavedStateRegistryController.create(this)
+
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val viewModelStore: ViewModelStore get() = store
+    override val savedStateRegistry: SavedStateRegistry get() = controller.savedStateRegistry
+
+    fun onCreate() {
+        controller.performRestore(null)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+    }
+
+    fun onResume() {
+        lifecycleRegistry.currentState = Lifecycle.State.STARTED
+        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+    }
+
+    fun onDestroy() {
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        store.clear()
     }
 }

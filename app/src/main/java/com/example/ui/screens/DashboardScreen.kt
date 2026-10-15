@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -60,6 +62,7 @@ import com.example.R
 import com.example.data.model.BoostResult
 import com.example.data.model.GameItem
 import com.example.data.model.PerformanceSnapshot
+import com.example.ui.components.FloatingGamingHud
 import com.example.ui.components.GlassCard
 import com.example.ui.components.MetricCircularGauge
 import com.example.ui.theme.CardGlassSurface
@@ -85,9 +88,11 @@ fun DashboardScreen(
     lastBoostResult: BoostResult?,
     games: List<GameItem>,
     isFloatingHudActive: Boolean,
+    hudOpacity: Float = 0.90f,
     isArabic: Boolean,
     onTriggerAutoBoost: () -> Unit,
     onToggleFloatingHud: (Boolean) -> Unit,
+    onHudOpacityChanged: (Float) -> Unit = {},
     onLaunchGame: (GameItem) -> Unit,
     onNavigateToSessions: () -> Unit
 ) {
@@ -456,6 +461,149 @@ fun DashboardScreen(
                         uncheckedThumbColor = TextMuted,
                         uncheckedTrackColor = Color.Black.copy(alpha = 0.5f)
                     )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // HUD OPACITY SLIDER
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = 0.35f))
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (isArabic) "شفافية اللوحة العائمة (HUD Opacity)" else "Floating HUD Opacity",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (isArabic) "تقليل الشفافية لجعل اللوحة غير مزعجة أثناء اللعب" else "Make HUD less intrusive during gameplay",
+                            fontSize = 10.sp,
+                            color = TextSecondary
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(RoyalGold.copy(alpha = 0.2f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "${(hudOpacity * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            color = RoyalGold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Slider(
+                    value = hudOpacity,
+                    onValueChange = onHudOpacityChanged,
+                    valueRange = 0.30f..1.0f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = RoyalGold,
+                        activeTrackColor = GlassCyan,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Quick Opacity Presets
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        Pair(0.40f, if (isArabic) "خفي (40%)" else "Stealth 40%"),
+                        Pair(0.70f, if (isArabic) "متوازن (70%)" else "Subtle 70%"),
+                        Pair(0.90f, if (isArabic) "قياسي (90%)" else "Default 90%"),
+                        Pair(1.00f, if (isArabic) "صلب (100%)" else "Solid 100%")
+                    ).forEach { (presetVal, presetLabel) ->
+                        val isSelected = Math.abs(hudOpacity - presetVal) < 0.05f
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) GlassCyan.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.3f))
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) GlassCyan else Color.White.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onHudOpacityChanged(presetVal) }
+                                .padding(vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = presetLabel,
+                                fontSize = 9.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) GlassCyan else TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Interactive Live Floating HUD Preview
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isArabic) "معاينة حية للوحة العائمة في الألعاب" else "LIVE COMPOSE HUD PREVIEW",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GlassCyan,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = if (isArabic) "اضغط BOOST لتجربة التسريع" else "Tap BOOST to test",
+                        fontSize = 10.sp,
+                        color = RoyalGoldLight
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FloatingGamingHud(
+                    fps = currentMetrics.fps,
+                    pingMs = currentMetrics.pingMs,
+                    cpuPercent = currentMetrics.cpuUsagePercent,
+                    ramUsedMb = currentMetrics.ramUsedMb,
+                    batteryTemp = currentMetrics.batteryTemp,
+                    thermalSafetyThreshold = 40.0f,
+                    opacity = hudOpacity,
+                    onSpeedBoost = onTriggerAutoBoost,
+                    onClearCache = onTriggerAutoBoost,
+                    onCoolDown = onTriggerAutoBoost,
+                    onClose = { onToggleFloatingHud(false) }
                 )
             }
         }
