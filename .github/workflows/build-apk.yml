@@ -1,0 +1,83 @@
+name: Build GlassBoost Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (debug / release)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+          - both
+
+jobs:
+  build:
+    name: Build & Package APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Environment & Secrets
+        run: |
+          # Ensure .env exists for the secrets gradle plugin
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+
+          # Ensure debug.keystore is present
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkey -v -keystore debug.keystore -storepass android \
+                -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+                -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          fi
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build Debug APK
+        if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event_name != 'workflow_dispatch' }}
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Build Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' }}
+        run: |
+          # For release builds without production upload key, fallback to debug signing or assembleRelease
+          ./gradlew :app:assembleRelease --no-daemon || ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Rename and Prepare APKs for Download
+        run: |
+          mkdir -p build-artifacts
+          find app/build/outputs/apk/ -name "*.apk" -type f -exec cp {} build-artifacts/ \;
+          ls -la build-artifacts/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassBoost-GameBooster-APK
+          path: build-artifacts/*.apk
+          retention-days: 90
