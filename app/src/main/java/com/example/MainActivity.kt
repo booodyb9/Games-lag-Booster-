@@ -281,7 +281,7 @@ fun MainAppRoot(
     val isTestingSingleServer by autoBoostEngine.isTestingSingleServer.collectAsState()
 
     var selectedPingServerId by remember {
-        mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "riyadh") ?: "riyadh")
+        mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "ultra_google_core") ?: "ultra_google_core")
     }
     var isOptimizingNetwork by remember { mutableStateOf(false) }
     var networkOptimizationDone by remember { mutableStateOf(false) }
@@ -327,11 +327,10 @@ fun MainAppRoot(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_glass_boost_logo),
                                 contentDescription = "Logo",
-                                tint = NeonCyan,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
@@ -516,11 +515,10 @@ fun MainAppRoot(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clickable { currentTab = ScreenTab.DASHBOARD }
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Bolt,
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_glass_boost_logo),
                                     contentDescription = "Logo",
-                                    tint = NeonCyan,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -533,8 +531,18 @@ fun MainAppRoot(
                             }
                         }
 
-                        // Top Bar Actions
+                        // Top Bar Actions (Screen 2: Crown VIP icon + Language Switcher + Quick Boost)
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Crown icon as in Screen 2
+                            Icon(
+                                imageVector = Icons.Default.WorkspacePremium,
+                                contentDescription = "VIP Status",
+                                tint = RoyalGold,
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             // Language switcher
                             Box(
                                 modifier = Modifier
@@ -787,6 +795,12 @@ fun MainAppRoot(
                                                 selectedPingServerId = newId
                                                 sharedPrefs.edit().putString("selected_ping_server_id", newId).apply()
                                             },
+                                            onSelectCategory = { cat ->
+                                                autoBoostEngine.setServerCategory(cat)
+                                                val firstId = if (cat == "regional") "riyadh" else "ultra_google_core"
+                                                selectedPingServerId = firstId
+                                                sharedPrefs.edit().putString("selected_ping_server_id", firstId).apply()
+                                            },
                                             onTestSelectedServer = { server ->
                                                 testSingleServer(server)
                                             },
@@ -917,11 +931,10 @@ fun GlassBoostSplashScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_glass_boost_logo),
                     contentDescription = "GlassBoost Logo",
-                    tint = NeonCyan,
-                    modifier = Modifier.size(76.dp)
+                    modifier = Modifier.size(92.dp)
                 )
             }
 

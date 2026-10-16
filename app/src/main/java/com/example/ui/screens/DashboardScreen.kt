@@ -154,11 +154,10 @@ fun DashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_glass_boost_logo),
                     contentDescription = "Logo",
-                    tint = NeonCyan,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(

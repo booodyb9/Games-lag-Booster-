@@ -96,7 +96,7 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun NetworkOptimizerScreen(
     servers: List<PingServerTarget> = DEFAULT_PING_SERVERS,
-    selectedServerId: String = "riyadh",
+    selectedServerId: String = "ultra_google_core",
     isTestingAll: Boolean = false,
     isTestingSingle: Boolean = false,
     isOptimizingNetwork: Boolean = false,
@@ -104,11 +104,15 @@ fun NetworkOptimizerScreen(
     overallJitterMs: Int = 2,
     isArabic: Boolean = true,
     onSelectServer: (String) -> Unit = {},
+    onSelectCategory: (String) -> Unit = {},
     onTestSelectedServer: (PingServerTarget) -> Unit = {},
     onTestAllServers: () -> Unit = {},
     onOptimizeNetworkRouting: () -> Unit = {}
 ) {
     val effectiveServers = if (servers.isEmpty()) DEFAULT_PING_SERVERS else servers
+    var selectedCategory by remember(effectiveServers) {
+        mutableStateOf(if (effectiveServers.firstOrNull()?.category == "regional") "regional" else "ultra")
+    }
     var dnsOptimizationEnabled by remember { mutableStateOf(true) }
     var connectionBoostEnabled by remember { mutableStateOf(true) }
     var destinationDropdownExpanded by remember { mutableStateOf(false) }
@@ -601,26 +605,95 @@ fun NetworkOptimizerScreen(
             }
         }
 
-        // Section 4: All 8 Regional Servers List (PLACED PROMINENTLY RIGHT HERE)
+        // Section 4: All 8 Gaming Servers List with Category Switcher
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isArabic) "قائمة خوادم الألعاب الإقليمية (${effectiveServers.size} مواقع)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = RoyalGold,
-                    letterSpacing = 0.8.sp
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isArabic) {
+                            if (selectedCategory == "ultra") "خوادم فائقة السرعة Ultra Ping (< 50ms)" else "خوادم الألعاب الإقليمية (${effectiveServers.size} مواقع)"
+                        } else {
+                            if (selectedCategory == "ultra") "ULTRA-LOW PING NODES (< 50ms)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = RoyalGold,
+                        letterSpacing = 0.8.sp
+                    )
 
-                Text(
-                    text = if (isArabic) "انقر لاختبار أي وجهة" else "Tap to select & test",
-                    fontSize = 10.sp,
-                    color = SlateBlueMuted
-                )
+                    Text(
+                        text = if (isArabic) "انقر للاختبار والفحص" else "Tap to select & test",
+                        fontSize = 10.sp,
+                        color = SlateBlueMuted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Category Switcher Pill: Ultra Ping (< 50ms) vs Regional
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DeepVoidBlack)
+                        .border(1.dp, CardGlassBorder, RoundedCornerShape(12.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val isUltraActive = selectedCategory == "ultra"
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isUltraActive) NeonCyan else Color.Transparent)
+                            .clickable {
+                                selectedCategory = "ultra"
+                                onSelectCategory("ultra")
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "⚡", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isArabic) "خوادم Ultra (< 50ms)" else "Ultra Low (< 50ms)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isUltraActive) ObsidianBlack else PureWhite
+                            )
+                        }
+                    }
+
+                    val isRegionalActive = selectedCategory == "regional"
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isRegionalActive) NeonCyan else Color.Transparent)
+                            .clickable {
+                                selectedCategory = "regional"
+                                onSelectCategory("regional")
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🌍", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isArabic) "خوادم إقليمية" else "Regional Nodes",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isRegionalActive) ObsidianBlack else PureWhite
+                            )
+                        }
+                    }
+                }
             }
         }
 
