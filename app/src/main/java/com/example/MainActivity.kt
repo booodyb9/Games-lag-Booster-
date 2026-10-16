@@ -275,130 +275,26 @@ fun MainAppRoot(
         refreshProcesses()
     }
 
-    // 8 Regional Gaming Ping Benchmark Destinations as requested
-    var pingServers by remember {
-        mutableStateOf(
-            listOf(
-                PingServerTarget(
-                    id = "riyadh",
-                    nameAr = "السعودية — الرياض",
-                    nameEn = "Saudi Arabia — Riyadh",
-                    location = "Riyadh (KSA Hub)",
-                    host = "stc.com.sa",
-                    port = 443,
-                    iconEmoji = "🇸🇦"
-                ),
-                PingServerTarget(
-                    id = "dubai",
-                    nameAr = "الإمارات — دبي",
-                    nameEn = "UAE — Dubai",
-                    location = "Dubai (Middle East Cloud)",
-                    host = "ec2.me-central-1.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇦🇪"
-                ),
-                PingServerTarget(
-                    id = "cairo",
-                    nameAr = "مصر — القاهرة",
-                    nameEn = "Egypt — Cairo",
-                    location = "Cairo (North Africa)",
-                    host = "www.orange.eg",
-                    port = 443,
-                    iconEmoji = "🇪🇬"
-                ),
-                PingServerTarget(
-                    id = "us_east",
-                    nameAr = "أمريكا — شرق الولايات المتحدة",
-                    nameEn = "USA — US East",
-                    location = "N. Virginia (US East)",
-                    host = "ec2.us-east-1.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇺🇸"
-                ),
-                PingServerTarget(
-                    id = "us_west",
-                    nameAr = "أمريكا — غرب الولايات المتحدة",
-                    nameEn = "USA — US West",
-                    location = "Oregon (US West)",
-                    host = "ec2.us-west-2.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇺🇸"
-                ),
-                PingServerTarget(
-                    id = "london",
-                    nameAr = "بريطانيا — لندن",
-                    nameEn = "UK — London",
-                    location = "London (West Europe)",
-                    host = "ec2.eu-west-2.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇬🇧"
-                ),
-                PingServerTarget(
-                    id = "frankfurt",
-                    nameAr = "ألمانيا — فرانكفورت",
-                    nameEn = "Germany — Frankfurt",
-                    location = "Frankfurt (Central Europe)",
-                    host = "ec2.eu-central-1.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇩🇪"
-                ),
-                PingServerTarget(
-                    id = "singapore",
-                    nameAr = "سنغافورة",
-                    nameEn = "Singapore",
-                    location = "Singapore (Asia Pacific)",
-                    host = "ec2.ap-southeast-1.amazonaws.com",
-                    port = 443,
-                    iconEmoji = "🇸🇬"
-                )
-            )
-        )
-    }
+    // 8 Regional Gaming Ping Benchmark Destinations collected from AutoBoostEngine StateFlow
+    val pingServers by autoBoostEngine.pingServers.collectAsState()
+    val isTestingNetwork by autoBoostEngine.isTestingNetwork.collectAsState()
+    val isTestingSingleServer by autoBoostEngine.isTestingSingleServer.collectAsState()
 
     var selectedPingServerId by remember {
         mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "riyadh") ?: "riyadh")
     }
-    var isTestingNetwork by remember { mutableStateOf(false) }
-    var isTestingSingleServer by remember { mutableStateOf(false) }
     var isOptimizingNetwork by remember { mutableStateOf(false) }
     var networkOptimizationDone by remember { mutableStateOf(false) }
 
     fun testSingleServer(target: PingServerTarget) {
         coroutineScope.launch {
-            isTestingSingleServer = true
-            val res = autoBoostEngine.measureDetailedServerPing(target.host, target.port, probeCount = 3)
-            pingServers = pingServers.map { s ->
-                if (s.id == target.id) {
-                    s.copy(
-                        currentPingMs = res.pingMs,
-                        jitterMs = res.jitterMs,
-                        packetLossPercent = res.packetLossPercent,
-                        isFailed = !res.isSuccess,
-                        status = res.statusText,
-                        lastTestedTimestamp = System.currentTimeMillis()
-                    )
-                } else s
-            }
-            isTestingSingleServer = false
+            autoBoostEngine.testSingleServer(target)
         }
     }
 
     fun testAllServers() {
         coroutineScope.launch {
-            isTestingNetwork = true
-            val updated = pingServers.map { s ->
-                val res = autoBoostEngine.measureDetailedServerPing(s.host, s.port, probeCount = 2)
-                s.copy(
-                    currentPingMs = res.pingMs,
-                    jitterMs = res.jitterMs,
-                    packetLossPercent = res.packetLossPercent,
-                    isFailed = !res.isSuccess,
-                    status = res.statusText,
-                    lastTestedTimestamp = System.currentTimeMillis()
-                )
-            }
-            pingServers = updated
-            isTestingNetwork = false
+            autoBoostEngine.testAllServers()
         }
     }
 
@@ -511,7 +407,7 @@ fun MainAppRoot(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Wifi,
+                                imageVector = Icons.Default.NetworkCheck,
                                 contentDescription = "Network & Ping Servers",
                                 tint = if (isNetworkTabActive) NeonCyan else SlateBlueMuted,
                                 modifier = Modifier.size(20.dp)

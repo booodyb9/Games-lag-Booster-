@@ -6,7 +6,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import com.example.data.model.BoostResult
+import com.example.data.model.DEFAULT_PING_SERVERS
 import com.example.data.model.HeavyProcessItem
+import com.example.data.model.PingServerTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -41,6 +43,50 @@ class AutoBoostEngine(private val context: Context) {
 
     private val _lastBoostResult = MutableStateFlow<BoostResult?>(null)
     val lastBoostResult: StateFlow<BoostResult?> = _lastBoostResult.asStateFlow()
+
+    private val _pingServers = MutableStateFlow<List<PingServerTarget>>(DEFAULT_PING_SERVERS)
+    val pingServers: StateFlow<List<PingServerTarget>> = _pingServers.asStateFlow()
+
+    private val _isTestingNetwork = MutableStateFlow(false)
+    val isTestingNetwork: StateFlow<Boolean> = _isTestingNetwork.asStateFlow()
+
+    private val _isTestingSingleServer = MutableStateFlow(false)
+    val isTestingSingleServer: StateFlow<Boolean> = _isTestingSingleServer.asStateFlow()
+
+    suspend fun testSingleServer(target: PingServerTarget) = withContext(Dispatchers.IO) {
+        _isTestingSingleServer.value = true
+        val res = measureDetailedServerPing(target.host, target.port, probeCount = 3)
+        _pingServers.value = _pingServers.value.map { s ->
+            if (s.id == target.id) {
+                s.copy(
+                    currentPingMs = res.pingMs,
+                    jitterMs = res.jitterMs,
+                    packetLossPercent = res.packetLossPercent,
+                    isFailed = !res.isSuccess,
+                    status = res.statusText,
+                    lastTestedTimestamp = System.currentTimeMillis()
+                )
+            } else s
+        }
+        _isTestingSingleServer.value = false
+    }
+
+    suspend fun testAllServers() = withContext(Dispatchers.IO) {
+        _isTestingNetwork.value = true
+        val updated = _pingServers.value.map { s ->
+            val res = measureDetailedServerPing(s.host, s.port, probeCount = 2)
+            s.copy(
+                currentPingMs = res.pingMs,
+                jitterMs = res.jitterMs,
+                packetLossPercent = res.packetLossPercent,
+                isFailed = !res.isSuccess,
+                status = res.statusText,
+                lastTestedTimestamp = System.currentTimeMillis()
+            )
+        }
+        _pingServers.value = updated
+        _isTestingNetwork.value = false
+    }
 
     /**
      * Primary gaming domains used for DNS cache pre-fetching and socket route warm-up.

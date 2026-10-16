@@ -86,6 +86,81 @@ data class PingServerTarget(
     val lastTestedTimestamp: Long? = null
 )
 
+val DEFAULT_PING_SERVERS = listOf(
+    PingServerTarget(
+        id = "riyadh",
+        nameAr = "السعودية — الرياض",
+        nameEn = "Saudi Arabia — Riyadh",
+        location = "Riyadh (KSA Hub)",
+        host = "stc.com.sa",
+        port = 443,
+        iconEmoji = "🇸🇦"
+    ),
+    PingServerTarget(
+        id = "dubai",
+        nameAr = "الإمارات — دبي",
+        nameEn = "UAE — Dubai",
+        location = "Dubai (Middle East Cloud)",
+        host = "ec2.me-central-1.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇦🇪"
+    ),
+    PingServerTarget(
+        id = "cairo",
+        nameAr = "مصر — القاهرة",
+        nameEn = "Egypt — Cairo",
+        location = "Cairo (North Africa)",
+        host = "www.orange.eg",
+        port = 443,
+        iconEmoji = "🇪🇬"
+    ),
+    PingServerTarget(
+        id = "us_east",
+        nameAr = "أمريكا — شرق الولايات المتحدة",
+        nameEn = "USA — US East",
+        location = "N. Virginia (US East)",
+        host = "ec2.us-east-1.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇺🇸"
+    ),
+    PingServerTarget(
+        id = "us_west",
+        nameAr = "أمريكا — غرب الولايات المتحدة",
+        nameEn = "USA — US West",
+        location = "Oregon (US West)",
+        host = "ec2.us-west-2.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇺🇸"
+    ),
+    PingServerTarget(
+        id = "london",
+        nameAr = "بريطانيا — لندن",
+        nameEn = "UK — London",
+        location = "London (West Europe)",
+        host = "ec2.eu-west-2.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇬🇧"
+    ),
+    PingServerTarget(
+        id = "frankfurt",
+        nameAr = "ألمانيا — فرانكفورت",
+        nameEn = "Germany — Frankfurt",
+        location = "Frankfurt (Central Europe)",
+        host = "ec2.eu-central-1.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇩🇪"
+    ),
+    PingServerTarget(
+        id = "singapore",
+        nameAr = "سنغافورة",
+        nameEn = "Singapore",
+        location = "Singapore (Asia Pacific)",
+        host = "ec2.ap-southeast-1.amazonaws.com",
+        port = 443,
+        iconEmoji = "🇸🇬"
+    )
+)
+
 /**
  * Game configuration and launch item.
  */

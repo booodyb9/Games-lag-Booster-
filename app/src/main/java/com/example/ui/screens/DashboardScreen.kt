@@ -86,22 +86,8 @@ import com.example.ui.components.AppIconImage
 import com.example.ui.components.BoostSuccessDialog
 import com.example.ui.components.FloatingGamingHud
 import com.example.ui.components.GlassCard
-import com.example.ui.theme.CardGlassBorder
-import com.example.ui.theme.CardGlassSurface
-import com.example.ui.theme.DarkSlate
-import com.example.ui.theme.DeepGlassNavy
-import com.example.ui.theme.DeepVoidBlack
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.NeonCyan
-import com.example.ui.theme.ObsidianBlack
-import com.example.ui.theme.PerformanceGreen
-import com.example.ui.theme.PureWhite
-import com.example.ui.theme.RoyalGold
-import com.example.ui.theme.RoyalGoldDark
-import com.example.ui.theme.SlateBlueMuted
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.*
+import com.example.data.model.DEFAULT_PING_SERVERS
 
 /**
  * GlassBoost Dashboard Screen.
@@ -117,7 +103,7 @@ fun DashboardScreen(
     isFloatingHudActive: Boolean,
     hudOpacity: Float = 0.70f,
     isArabic: Boolean,
-    pingServers: List<PingServerTarget> = emptyList(),
+    pingServers: List<PingServerTarget> = DEFAULT_PING_SERVERS,
     onTriggerAutoBoost: () -> Unit,
     onToggleFloatingHud: (Boolean) -> Unit,
     onHudOpacityChanged: (Float) -> Unit = {},
@@ -406,51 +392,51 @@ fun DashboardScreen(
         Spacer(modifier = Modifier.height(14.dp))
 
         // Regional Gaming Servers Direct Access Card (Screen 4 Gateway)
-        if (pingServers.isNotEmpty()) {
-            GlassCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onNavigateToNetwork() },
-                borderColor = NeonCyan.copy(alpha = 0.45f)
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Wifi,
-                                contentDescription = "Ping Nodes",
-                                tint = NeonCyan,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isArabic) "خوادم الألعاب واختبار Ping (8 مواقع)" else "Gaming Servers & Ping (8 Nodes)",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PureWhite
-                            )
-                        }
-
+        val effectivePingServers = if (pingServers.isEmpty()) DEFAULT_PING_SERVERS else pingServers
+        GlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onNavigateToNetwork() },
+            borderColor = NeonCyan.copy(alpha = 0.45f)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = "Ping Nodes",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isArabic) "فحص واختبار ➔" else "Test All ➔",
-                            fontSize = 11.sp,
+                            text = if (isArabic) "خوادم الألعاب واختبار Ping (8 مواقع)" else "Gaming Servers & Ping (8 Nodes)",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = NeonCyan
+                            color = PureWhite
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (isArabic) "فحص واختبار ➔" else "Test All ➔",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonCyan
+                    )
+                }
 
-                    // Horizontal preview chips of all 8 locations
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(pingServers) { server ->
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Horizontal preview chips of all 8 locations
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(effectivePingServers) { server ->
                             val ping = server.currentPingMs
                             val isFailed = server.isFailed
                             val chipColor = when {
@@ -495,7 +481,6 @@ fun DashboardScreen(
                     }
                 }
             }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

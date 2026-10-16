@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.PingServerTarget
+import com.example.data.model.DEFAULT_PING_SERVERS
 import com.example.ui.components.GlassCard
 import com.example.ui.theme.CardGlassBorder
 import com.example.ui.theme.CardGlassSurface
@@ -94,27 +95,28 @@ import com.example.ui.theme.TextSecondary
  */
 @Composable
 fun NetworkOptimizerScreen(
-    servers: List<PingServerTarget>,
-    selectedServerId: String,
-    isTestingAll: Boolean,
-    isTestingSingle: Boolean,
-    isOptimizingNetwork: Boolean,
-    networkOptimizationDone: Boolean,
-    overallJitterMs: Int,
-    isArabic: Boolean,
-    onSelectServer: (String) -> Unit,
-    onTestSelectedServer: (PingServerTarget) -> Unit,
-    onTestAllServers: () -> Unit,
-    onOptimizeNetworkRouting: () -> Unit
+    servers: List<PingServerTarget> = DEFAULT_PING_SERVERS,
+    selectedServerId: String = "riyadh",
+    isTestingAll: Boolean = false,
+    isTestingSingle: Boolean = false,
+    isOptimizingNetwork: Boolean = false,
+    networkOptimizationDone: Boolean = false,
+    overallJitterMs: Int = 2,
+    isArabic: Boolean = true,
+    onSelectServer: (String) -> Unit = {},
+    onTestSelectedServer: (PingServerTarget) -> Unit = {},
+    onTestAllServers: () -> Unit = {},
+    onOptimizeNetworkRouting: () -> Unit = {}
 ) {
+    val effectiveServers = if (servers.isEmpty()) DEFAULT_PING_SERVERS else servers
     var dnsOptimizationEnabled by remember { mutableStateOf(true) }
     var connectionBoostEnabled by remember { mutableStateOf(true) }
     var destinationDropdownExpanded by remember { mutableStateOf(false) }
 
-    val currentSelectedServer = servers.find { it.id == selectedServerId } ?: servers.firstOrNull()
+    val currentSelectedServer = effectiveServers.find { it.id == selectedServerId } ?: effectiveServers.firstOrNull()
 
     // Automatically trigger test on entry if not tested yet
-    LaunchedEffect(selectedServerId) {
+    LaunchedEffect(selectedServerId, effectiveServers) {
         if (currentSelectedServer != null && currentSelectedServer.currentPingMs == null && !isTestingSingle && !isTestingAll) {
             onTestSelectedServer(currentSelectedServer)
         }
@@ -333,7 +335,7 @@ fun NetworkOptimizerScreen(
                                     .background(DeepVoidBlack)
                                     .border(1.dp, CardGlassBorder, RoundedCornerShape(8.dp))
                             ) {
-                                servers.forEach { server ->
+                                effectiveServers.forEach { server ->
                                     DropdownMenuItem(
                                         text = {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -607,7 +609,7 @@ fun NetworkOptimizerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isArabic) "قائمة خوادم الألعاب الإقليمية (${servers.size} مواقع)" else "ALL REGIONAL GAMING NODES (${servers.size})",
+                    text = if (isArabic) "قائمة خوادم الألعاب الإقليمية (${effectiveServers.size} مواقع)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = RoyalGold,
@@ -623,7 +625,7 @@ fun NetworkOptimizerScreen(
         }
 
         // All 8 Servers Items with direct "فحص" button
-        items(servers, key = { it.id }) { server ->
+        items(effectiveServers, key = { it.id }) { server ->
             val isSelected = server.id == selectedServerId
             val ping = server.currentPingMs
             val isFailed = server.isFailed
