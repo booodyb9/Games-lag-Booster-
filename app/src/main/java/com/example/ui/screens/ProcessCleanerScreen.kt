@@ -90,8 +90,8 @@ fun ProcessCleanerScreen(
     val heavyList = processes.filter { it.isHeavy }
     val totalHeavyRam = heavyList.sumOf { it.memoryUsageMb }
 
-    // Display cleaned GB matching design board style
-    val displayCleanedGb = "2.3 GB"
+    // This screen has no measured-cleanup input yet; never show a fabricated cleaned-memory total.
+    val displayCleanedGb = "— MB"
 
     LazyColumn(
         modifier = Modifier
@@ -130,7 +130,7 @@ fun ProcessCleanerScreen(
             }
         }
 
-        // Circular Gauge: "2.3 GB تم التنظيف" (Screen 5 Centerpiece)
+        // Circular gauge: show unavailable until a measured cleanup result is supplied.
         item {
             Box(
                 modifier = Modifier
@@ -192,13 +192,13 @@ fun ProcessCleanerScreen(
             }
         }
 
-        // Checklist Breakdown Cards (Screen 5: الذاكرة المؤقتة 1.2 GB | الملفات غير الضرورية 0.6 GB | العمليات الخلفية 0.5 GB)
+        // Checklist labels are options, not measurements; avoid presenting invented file/cache sizes.
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Item 1: الذاكرة المؤقتة
                 ChecklistRowItem(
                     title = if (isArabic) "الذاكرة المؤقتة" else "Cache Memory",
-                    sizeText = "1.2 GB",
+                    sizeText = if (isArabic) "غير مقاس" else "Not measured",
                     isChecked = checkCache,
                     onToggle = { checkCache = !checkCache }
                 )
@@ -206,7 +206,7 @@ fun ProcessCleanerScreen(
                 // Item 2: الملفات غير الضرورية
                 ChecklistRowItem(
                     title = if (isArabic) "الملفات غير الضرورية" else "Junk Files",
-                    sizeText = "0.6 GB",
+                    sizeText = if (isArabic) "غير مقاس" else "Not measured",
                     isChecked = checkJunk,
                     onToggle = { checkJunk = !checkJunk }
                 )
@@ -214,7 +214,7 @@ fun ProcessCleanerScreen(
                 // Item 3: العمليات الخلفية
                 ChecklistRowItem(
                     title = if (isArabic) "العمليات الخلفية" else "Background Processes",
-                    sizeText = "0.5 GB",
+                    sizeText = if (isArabic) "غير مقاس" else "Not measured",
                     isChecked = checkBgProcesses,
                     onToggle = { checkBgProcesses = !checkBgProcesses },
                     hasChevron = true
@@ -340,7 +340,12 @@ fun ProcessCleanerScreen(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "RAM: ${item.memoryUsageMb} MB • CPU: ${item.cpuUsagePercent}%",
+                            text = if (item.memoryUsageMb > 0L) {
+                                if (item.cpuUsagePercent >= 0f) "RAM: ${item.memoryUsageMb} MB • CPU: ${item.cpuUsagePercent}%"
+                                else "RAM: ${item.memoryUsageMb} MB • CPU: " + (if (isArabic) "غير متاح" else "Unavailable")
+                            } else {
+                                if (isArabic) "RAM: غير متاح • CPU: غير متاح" else "RAM: unavailable • CPU: unavailable"
+                            },
                             fontSize = 11.sp,
                             color = SlateBlueMuted
                         )

@@ -84,14 +84,13 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
 /**
- * Screen 4: شاشة محسن الشبكات واختبار Ping الفعلي
+ * Screen 4: public TCP connectivity benchmark
  * Includes:
- * 1. 8 Selectable regional gaming benchmark destinations (KSA Riyadh, UAE Dubai, Egypt Cairo,
- *    US East, US West, UK London, Germany Frankfurt, Singapore).
- * 2. Dedicated "اختبار Ping" button measuring real TCP connect latency, jitter, and packet loss.
- * 3. Individual "فحص" button for each server and "اختبار الكل" for bulk testing.
- * 4. Technical explanation that measurements are real TCP handshake latency.
- * 5. Transparent policy disclaimer (benchmarking tool, not VPN).
+ * 1. Public TCP endpoints grouped for convenient comparison; they are not game servers.
+ * 2. Test buttons measure TCP connection time and failed connection attempts.
+ * 3. Individual and bulk tests are available.
+ * 4. Results are not in-game latency or ICMP packet-loss measurements.
+ * 5. This benchmark does not reroute traffic and is not a VPN.
  */
 @Composable
 fun NetworkOptimizerScreen(
@@ -168,7 +167,7 @@ fun NetworkOptimizerScreen(
                         color = PureWhite
                     )
                     Text(
-                        text = if (isArabic) "فحص زمن الاستجابة الحقيقي لـ 8 وجهات عالمية" else "Real Socket Ping Benchmark for 8 Global Regions",
+                        text = if (isArabic) "قياس زمن اتصال TCP بوجهات عامة، وليس خوادم ألعاب" else "TCP connection timing to public endpoints, not game servers",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
@@ -456,9 +455,9 @@ fun NetworkOptimizerScreen(
                                                     if (isArabic) "تعذر الوصول" else "Unreachable"
                                                 } else if (ping != null) {
                                                     when {
-                                                        ping < 45 -> if (isArabic) "ممتاز للألعاب" else "Excellent"
-                                                        ping < 90 -> if (isArabic) "مستقر وسريع" else "Good & Stable"
-                                                        ping < 160 -> if (isArabic) "متوسط الاستجابة" else "Moderate"
+                                                        ping < 45 -> if (isArabic) "زمن اتصال TCP منخفض" else "Low TCP connect time"
+                                                        ping < 90 -> if (isArabic) "زمن اتصال TCP جيد" else "Good TCP connect time"
+                                                        ping < 160 -> if (isArabic) "زمن اتصال TCP متوسط" else "Moderate TCP connect time"
                                                         else -> if (isArabic) "تأخير مرتفع" else "High Latency"
                                                     }
                                                 } else {
@@ -605,7 +604,7 @@ fun NetworkOptimizerScreen(
             }
         }
 
-        // Section 4: All 8 Gaming Servers List with Category Switcher
+        // Section 4: Public TCP endpoints list with category switcher
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -615,9 +614,9 @@ fun NetworkOptimizerScreen(
                 ) {
                     Text(
                         text = if (isArabic) {
-                            if (selectedCategory == "ultra") "خوادم فائقة السرعة Ultra Ping (< 50ms)" else "خوادم الألعاب الإقليمية (${effectiveServers.size} مواقع)"
+                            if (selectedCategory == "ultra") "وجهات DNS عامة" else "وجهات اختبار متنوعة (${effectiveServers.size})"
                         } else {
-                            if (selectedCategory == "ultra") "ULTRA-LOW PING NODES (< 50ms)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})"
+                            if (selectedCategory == "ultra") "PUBLIC DNS ENDPOINTS" else "OTHER PUBLIC TEST ENDPOINTS (${effectiveServers.size})"
                         },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -634,7 +633,7 @@ fun NetworkOptimizerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Category Switcher Pill: Ultra Ping (< 50ms) vs Regional
+                // Category switcher: public DNS endpoints vs other public endpoints
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -858,7 +857,7 @@ fun NetworkOptimizerScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = if (isArabic) "تحسين خوادم DNS للألعاب" else "Gaming DNS Fastpath",
+                                text = if (isArabic) "تهيئة DNS (لا تضمن خفض Ping اللعبة)" else "DNS pre-resolution (does not guarantee lower game ping)",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PureWhite
@@ -977,9 +976,9 @@ fun NetworkOptimizerScreen(
             ) {
                 Text(
                     text = if (isArabic)
-                        "تنبيه: قياس زمن الاستجابة هو أداة فحص واختبار لجودة وسرعة الاتصال بنقاط الخوادم، ولا يغير مسار بيانات اللعبة أو يشكل اتصال VPN."
+                        "تنبيه: هذا قياس لاتصال TCP بمواقع عامة وليس Ping داخل اللعبة أو قياس فقد حزم اللعبة. لا يغير مسار بيانات اللعبة ولا يعمل كـ VPN."
                     else
-                        "Note: Ping testing is a benchmark tool for measuring connection latency to regional nodes; it does not reroute game packets or operate as a VPN.",
+                        "Note: This measures TCP connection time to public endpoints, not in-game ping or game packet loss. It does not reroute game traffic or act as a VPN.",
                     fontSize = 10.sp,
                     color = TextMuted,
                     textAlign = TextAlign.Center,

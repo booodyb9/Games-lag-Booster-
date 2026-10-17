@@ -68,7 +68,7 @@ data class BoostResult(
 )
 
 /**
- * Ping test target representing regional gaming servers and DNS clusters.
+ * Public TCP connectivity test target. These are not game servers; measured latency is not a game's in-match ping.
  */
 data class PingServerTarget(
     val id: String,
@@ -90,114 +90,82 @@ data class PingServerTarget(
 val ULTRA_LOW_PING_SERVERS = listOf(
     PingServerTarget(
         id = "ultra_google_core",
-        nameAr = "جوجل للألعاب (Google Gaming Core)",
-        nameEn = "Google Gaming Core Anycast",
+        nameAr = "اختبار اتصال Google DNS",
+        nameEn = "Google DNS TCP endpoint",
         location = "Global Anycast Gaming POP",
         host = "8.8.8.8",
         port = 53,
         iconEmoji = "🚀",
-        currentPingMs = 2,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_cloudflare_1",
-        nameAr = "كلاودفلير فائق السرعة (Edge 1)",
-        nameEn = "Cloudflare Ultra Gaming Edge",
+        nameAr = "اختبار اتصال Cloudflare DNS",
+        nameEn = "Cloudflare DNS TCP endpoint",
         location = "Direct Anycast Backbone",
         host = "1.1.1.1",
         port = 53,
         iconEmoji = "⚡",
-        currentPingMs = 4,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_cloudflare_route",
-        nameAr = "كلاودفلير مسار مباشر (Fast Route)",
-        nameEn = "Cloudflare Direct Fast Route",
+        nameAr = "اختبار اتصال Cloudflare البديل",
+        nameEn = "Cloudflare alternate TCP endpoint",
         location = "Ultra-Low Latency POP",
         host = "1.0.0.1",
         port = 53,
         iconEmoji = "🌐",
-        currentPingMs = 3,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_google_backup",
-        nameAr = "جوجل مسار بديل (Google Edge 2)",
-        nameEn = "Google Edge Alternate Route",
+        nameAr = "اختبار اتصال Google DNS البديل",
+        nameEn = "Google alternate TCP endpoint",
         location = "Low-Delay Gaming Node",
         host = "8.8.4.4",
         port = 53,
         iconEmoji = "🎯",
-        currentPingMs = 3,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_google_https",
-        nameAr = "سوكيت جوجل المشفر (Google Socket)",
-        nameEn = "Google Fastpath Socket HTTPS",
+        nameAr = "اختبار HTTPS إلى Google DNS",
+        nameEn = "Google DNS HTTPS endpoint",
         location = "Encrypted Gaming Gateway",
         host = "dns.google",
         port = 443,
         iconEmoji = "🔒",
-        currentPingMs = 4,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_cloudflare_shield",
-        nameAr = "كلاودفلير للألعاب الآمنة (Shield Edge)",
-        nameEn = "Cloudflare Shield Gaming POP",
+        nameAr = "اختبار Cloudflare DNS الآمن",
+        nameEn = "Cloudflare security DNS endpoint",
         location = "Anti-DDoS Low-Latency Node",
         host = "1.1.1.2",
         port = 53,
         iconEmoji = "🛡️",
-        currentPingMs = 3,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_cloudflare_direct2",
-        nameAr = "كلاودفلير إكستريم (Direct Edge 2)",
-        nameEn = "Cloudflare Extreme Direct",
+        nameAr = "اختبار Cloudflare DNS الإضافي",
+        nameEn = "Cloudflare additional TCP endpoint",
         location = "Zero-Jitter Gaming Transit",
         host = "1.0.0.2",
         port = 53,
         iconEmoji = "🏎️",
-        currentPingMs = 3,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     ),
     PingServerTarget(
         id = "ultra_aws_cloudfront",
-        nameAr = "أمازون للألعاب (AWS CloudFront Edge)",
-        nameEn = "AWS CloudFront Edge Gaming",
+        nameAr = "اختبار اتصال موقع AWS",
+        nameEn = "AWS website TCP endpoint",
         location = "Amazon Global Edge Network",
         host = "aws.amazon.com",
         port = 443,
         iconEmoji = "☁️",
-        currentPingMs = 5,
-        jitterMs = 1,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب (فائق السرعة)",
         category = "ultra"
     )
 )
@@ -211,10 +179,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "stc.com.sa",
         port = 443,
         iconEmoji = "🇸🇦",
-        currentPingMs = 18,
-        jitterMs = 2,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب",
         category = "regional"
     ),
     PingServerTarget(
@@ -225,10 +189,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.me-central-1.amazonaws.com",
         port = 443,
         iconEmoji = "🇦🇪",
-        currentPingMs = 22,
-        jitterMs = 2,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب",
         category = "regional"
     ),
     PingServerTarget(
@@ -239,10 +199,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "www.orange.eg",
         port = 443,
         iconEmoji = "🇪🇬",
-        currentPingMs = 24,
-        jitterMs = 2,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب",
         category = "regional"
     ),
     PingServerTarget(
@@ -253,10 +209,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.us-east-1.amazonaws.com",
         port = 443,
         iconEmoji = "🇺🇸",
-        currentPingMs = 38,
-        jitterMs = 3,
-        packetLossPercent = 0,
-        status = "مستقر وسريع",
         category = "regional"
     ),
     PingServerTarget(
@@ -267,10 +219,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.us-west-2.amazonaws.com",
         port = 443,
         iconEmoji = "🇺🇸",
-        currentPingMs = 42,
-        jitterMs = 3,
-        packetLossPercent = 0,
-        status = "مستقر وسريع",
         category = "regional"
     ),
     PingServerTarget(
@@ -281,10 +229,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.eu-west-2.amazonaws.com",
         port = 443,
         iconEmoji = "🇬🇧",
-        currentPingMs = 28,
-        jitterMs = 2,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب",
         category = "regional"
     ),
     PingServerTarget(
@@ -295,10 +239,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.eu-central-1.amazonaws.com",
         port = 443,
         iconEmoji = "🇩🇪",
-        currentPingMs = 32,
-        jitterMs = 2,
-        packetLossPercent = 0,
-        status = "ممتاز للألعاب",
         category = "regional"
     ),
     PingServerTarget(
@@ -309,10 +249,6 @@ val REGIONAL_PING_SERVERS = listOf(
         host = "ec2.ap-southeast-1.amazonaws.com",
         port = 443,
         iconEmoji = "🇸🇬",
-        currentPingMs = 46,
-        jitterMs = 3,
-        packetLossPercent = 0,
-        status = "مستقر وسريع",
         category = "regional"
     )
 )

@@ -137,7 +137,7 @@ fun DashboardScreen(
     val ramTotalGb = (currentMetrics.ramTotalMb / 1024.0).let { String.format("%.0f", it) }
     val ramRatioPercent = if (currentMetrics.ramTotalMb > 0) {
         ((currentMetrics.ramUsedMb.toFloat() / currentMetrics.ramTotalMb.toFloat()) * 100).toInt()
-    } else 56
+    } else -1
 
     Column(
         modifier = Modifier
@@ -343,19 +343,19 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Memory,
                 label = "RAM",
-                mainValue = "$ramRatioPercent%",
-                subtitle = "$ramUsedGb GB / $ramTotalGb GB",
-                isPositive = ramRatioPercent < 80
+                mainValue = if (ramRatioPercent >= 0) "$ramRatioPercent%" else "—",
+                subtitle = if (currentMetrics.ramTotalMb > 0) "$ramUsedGb GB / $ramTotalGb GB" else if (isArabic) "القياس غير متاح" else "Unavailable",
+                isPositive = ramRatioPercent in 0..79
             )
 
             // Card 2: CPU
             TelemetryGridCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Thermostat,
-                label = "CPU",
-                mainValue = "${currentMetrics.batteryTemp.toInt()}°C",
-                subtitle = "3.0 GHz",
-                isPositive = currentMetrics.batteryTemp < 40f
+                label = if (isArabic) "حرارة البطارية" else "Battery temp",
+                mainValue = if (currentMetrics.batteryTemp >= 0f) "${currentMetrics.batteryTemp.toInt()}°C" else "—",
+                subtitle = currentMetrics.thermalState,
+                isPositive = currentMetrics.batteryTemp in 0f..40f
             )
         }
 
@@ -372,9 +372,9 @@ fun DashboardScreen(
                     .clickable { onNavigateToNetwork() },
                 icon = Icons.Default.Wifi,
                 label = if (isArabic) "الشبكة والخوادم" else "Network & Ping",
-                mainValue = "${currentMetrics.pingMs}ms",
-                subtitle = if (isArabic) "8 خوادم إقليمية ➔" else "8 Regional Nodes ➔",
-                isPositive = currentMetrics.pingMs < 50
+                mainValue = if (currentMetrics.pingMs >= 0) "${currentMetrics.pingMs}ms" else "—",
+                subtitle = if (isArabic) "زمن اتصال TCP ➔" else "TCP connect time ➔",
+                isPositive = currentMetrics.pingMs in 0..49
             )
 
             // Card 4: Battery
