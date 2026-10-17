@@ -340,7 +340,12 @@ fun ProcessCleanerScreen(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (item.cpuUsagePercent >= 0f) "RAM: ${item.memoryUsageMb} MB • CPU: ${item.cpuUsagePercent}%" else "RAM: ${item.memoryUsageMb} MB • CPU: " + (if (isArabic) "غير متاح" else "Unavailable"),
+                            text = if (item.memoryUsageMb > 0L) {
+                                if (item.cpuUsagePercent >= 0f) "RAM: ${item.memoryUsageMb} MB • CPU: ${item.cpuUsagePercent}%"
+                                else "RAM: ${item.memoryUsageMb} MB • CPU: " + (if (isArabic) "غير متاح" else "Unavailable")
+                            } else {
+                                if (isArabic) "RAM: غير متاح • CPU: غير متاح" else "RAM: unavailable • CPU: unavailable"
+                            },
                             fontSize = 11.sp,
                             color = SlateBlueMuted
                         )
