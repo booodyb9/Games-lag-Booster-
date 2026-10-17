@@ -84,14 +84,13 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
 /**
- * Screen 4: شاشة محسن الشبكات واختبار Ping الفعلي
+ * Screen 4: public TCP connectivity benchmark
  * Includes:
- * 1. 8 Selectable regional gaming benchmark destinations (KSA Riyadh, UAE Dubai, Egypt Cairo,
- *    US East, US West, UK London, Germany Frankfurt, Singapore).
- * 2. Dedicated "اختبار Ping" button measuring real TCP connect latency, jitter, and packet loss.
- * 3. Individual "فحص" button for each server and "اختبار الكل" for bulk testing.
- * 4. Technical explanation that measurements are real TCP handshake latency.
- * 5. Transparent policy disclaimer (benchmarking tool, not VPN).
+ * 1. Public TCP endpoints grouped for convenient comparison; they are not game servers.
+ * 2. Test buttons measure TCP connection time and failed connection attempts.
+ * 3. Individual and bulk tests are available.
+ * 4. Results are not in-game latency or ICMP packet-loss measurements.
+ * 5. This benchmark does not reroute traffic and is not a VPN.
  */
 @Composable
 fun NetworkOptimizerScreen(
@@ -617,7 +616,7 @@ fun NetworkOptimizerScreen(
                         text = if (isArabic) {
                             if (selectedCategory == "ultra") "وجهات DNS عامة" else "وجهات اختبار متنوعة (${effectiveServers.size})"
                         } else {
-                            if (selectedCategory == "ultra") "ULTRA-LOW PING NODES (< 50ms)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})"
+                            if (selectedCategory == "ultra") "PUBLIC DNS ENDPOINTS" else "OTHER PUBLIC TEST ENDPOINTS (${effectiveServers.size})"
                         },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
