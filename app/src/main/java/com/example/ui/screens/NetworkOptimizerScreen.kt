@@ -168,7 +168,7 @@ fun NetworkOptimizerScreen(
                         color = PureWhite
                     )
                     Text(
-                        text = if (isArabic) "فحص زمن الاستجابة الحقيقي لـ 8 وجهات عالمية" else "Real Socket Ping Benchmark for 8 Global Regions",
+                        text = if (isArabic) "قياس زمن اتصال TCP بوجهات عامة، وليس خوادم ألعاب" else "TCP connection timing to public endpoints, not game servers",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
@@ -977,9 +977,9 @@ fun NetworkOptimizerScreen(
             ) {
                 Text(
                     text = if (isArabic)
-                        "تنبيه: قياس زمن الاستجابة هو أداة فحص واختبار لجودة وسرعة الاتصال بنقاط الخوادم، ولا يغير مسار بيانات اللعبة أو يشكل اتصال VPN."
+                        "تنبيه: هذا قياس لاتصال TCP بمواقع عامة وليس Ping داخل اللعبة أو قياس فقد حزم اللعبة. لا يغير مسار بيانات اللعبة ولا يعمل كـ VPN."
                     else
-                        "Note: Ping testing is a benchmark tool for measuring connection latency to regional nodes; it does not reroute game packets or operate as a VPN.",
+                        "Note: This measures TCP connection time to public endpoints, not in-game ping or game packet loss. It does not reroute game traffic or act as a VPN.",
                     fontSize = 10.sp,
                     color = TextMuted,
                     textAlign = TextAlign.Center,
