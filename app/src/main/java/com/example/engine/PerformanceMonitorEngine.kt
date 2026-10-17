@@ -26,7 +26,6 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.random.Random
 
 /**
  * Real-time hardware performance monitor that tracks FPS, network ping,
@@ -40,14 +39,14 @@ class PerformanceMonitorEngine(private val context: Context) {
     private val _currentMetrics = MutableStateFlow(
         PerformanceSnapshot(
             timestamp = System.currentTimeMillis(),
-            fps = 60,
-            pingMs = 28,
-            cpuUsagePercent = 24,
-            gpuUsagePercent = 32,
-            ramUsedMb = 3200,
-            ramTotalMb = 8192,
-            batteryTemp = 31.5f,
-            thermalState = "Cool"
+            fps = -1,
+            pingMs = -1,
+            cpuUsagePercent = -1,
+            gpuUsagePercent = -1,
+            ramUsedMb = 0,
+            ramTotalMb = 0,
+            batteryTemp = -1f,
+            thermalState = "Unknown"
         )
     )
     val currentMetrics: StateFlow<PerformanceSnapshot> = _currentMetrics.asStateFlow()
@@ -91,12 +90,13 @@ class PerformanceMonitorEngine(private val context: Context) {
                 val ping = measureSocketPing("1.1.1.1", 53)
                 val (usedRam, totalRam) = getRamInfo()
                 val cpuUsage = readCpuUsage()
-                val gpuUsage = estimateGpuUsage(currentCalculatedFps, cpuUsage)
+                val gpuUsage = readGpuUsagePercent()
                 val (temp, thermal) = readBatteryAndThermal()
 
                 val snapshot = PerformanceSnapshot(
                     timestamp = System.currentTimeMillis(),
-                    fps = if (currentCalculatedFps > 0) currentCalculatedFps else 60,
+                    // Choreographer measures this app's UI frames, not an external game's FPS.
+                    fps = if (currentCalculatedFps > 0) currentCalculatedFps else -1,
                     pingMs = ping,
                     cpuUsagePercent = cpuUsage,
                     gpuUsagePercent = gpuUsage,
@@ -136,12 +136,10 @@ class PerformanceMonitorEngine(private val context: Context) {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), 800)
                 val latency = (SystemClock.elapsedRealtime() - startTime).toInt()
-                latency.coerceIn(12, 350)
+                latency
             }
         } catch (_: Exception) {
-            // Realistic fallback with slight jitter if socket fails
-            val base = 28
-            (base + Random.nextInt(-4, 7)).coerceAtLeast(15)
+            -1 // Unreachable/blocked is unavailable, never fabricate a ping.
         }
     }
 
@@ -170,49 +168,41 @@ class PerformanceMonitorEngine(private val context: Context) {
 
                     if (totalDiff > 0) {
                         val usage = ((totalDiff - idleDiff) * 100 / totalDiff).toInt()
-                        return usage.coerceIn(5, 99)
+                        return usage.coerceIn(0, 100)
                     }
                 }
             }
         } catch (_: Exception) {}
 
-        // Fallback realistic variation
-        val current = _currentMetrics.value.cpuUsagePercent
-        val delta = Random.nextInt(-6, 7)
-        return (current + delta).coerceIn(18, 65)
+        return -1 // /proc/stat is unavailable or unreadable; do not invent CPU usage.
     }
 
-    private fun estimateGpuUsage(fps: Int, cpuUsage: Int): Int {
-        // Attempt to read sysfs gpu load if readable on Qualcomm/Mali devices
+    private fun readGpuUsagePercent(): Int {
+        // Only accept kernel nodes that explicitly report GPU busy percentage.
         val gpuPaths = listOf(
             "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
-            "/sys/kernel/gpu/gpu_busy",
-            "/sys/class/devfreq/gpufreq/cur_freq"
+            "/sys/kernel/gpu/gpu_busy"
         )
         for (path in gpuPaths) {
             try {
                 val file = File(path)
                 if (file.exists() && file.canRead()) {
-                    val content = file.readText().trim()
-                    val parsed = content.replace("%", "").trim().toIntOrNull()
+                    val content = file.readText().trim().removeSuffix("%").trim()
+                    val parsed = content.toIntOrNull()
                     if (parsed != null && parsed in 0..100) return parsed
                 }
             } catch (_: Exception) {}
         }
-
-        // Correlate with target FPS load and CPU workload
-        val fpsLoadRatio = (fps.toFloat() / 60.0f).coerceIn(0.5f, 2.0f)
-        val estimated = ((cpuUsage * 0.85f) + (fpsLoadRatio * 20f)).toInt()
-        return (estimated + Random.nextInt(-4, 5)).coerceIn(15, 92)
+        return -1 // Most retail Android devices do not expose GPU utilization to apps.
     }
 
     private fun readBatteryAndThermal(): Pair<Float, String> {
-        var tempC = 32.0f
+        var tempC = -1f
         try {
             val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             if (intent != null) {
-                val rawTemp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 320)
-                tempC = rawTemp / 10.0f
+                val rawTemp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)
+                if (rawTemp >= 0) tempC = rawTemp / 10.0f
             }
         } catch (_: Exception) {}
 
@@ -227,6 +217,7 @@ class PerformanceMonitorEngine(private val context: Context) {
             }
         } else {
             when {
+                tempC < 0f -> "Unknown (غير متاح)"
                 tempC < 35f -> "Cool (بارد)"
                 tempC < 40f -> "Normal (معتدل)"
                 tempC < 44f -> "Warm (دافئ)"
