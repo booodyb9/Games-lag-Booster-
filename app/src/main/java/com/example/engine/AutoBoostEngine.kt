@@ -3,7 +3,6 @@ package com.example.engine
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import android.os.SystemClock
 import com.example.data.model.BoostResult
 import com.example.data.model.DEFAULT_PING_SERVERS
@@ -23,7 +22,6 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
-import kotlin.random.Random
 
 /**
  * High-performance hardware optimization engine that performs:
@@ -150,25 +148,11 @@ class AutoBoostEngine(private val context: Context) {
             }
 
             val pssKb = memInfo?.firstOrNull()?.totalPss ?: 0
-            val memMb = if (pssKb > 0) {
-                (pssKb / 1024).toLong()
-            } else {
-                // Approximate based on process importance
-                when (info.importance) {
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE -> 180L
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> 140L
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> 110L
-                    else -> 75L
-                }
-            }
-
-            val cpuEstimate = when {
-                memMb > 250 -> 7.5f
-                memMb > 120 -> 4.2f
-                else -> 1.8f
-            }
-
-            val isHeavy = memMb >= 100 || cpuEstimate > 4.0f
+            // A zero PSS means Android did not provide a measurement; don't substitute guesses.
+            val memMb = if (pssKb > 0) (pssKb / 1024).toLong() else 0L
+            // Per-process CPU is not available through this public API on modern Android.
+            val cpuEstimate = -1f
+            val isHeavy = memMb >= 100
 
             results.add(
                 HeavyProcessItem(
@@ -182,40 +166,6 @@ class AutoBoostEngine(private val context: Context) {
                     category = if (isHeavy) "Heavy Consumer (مستهلك عالي)" else "Normal Process (عملية عادية)"
                 )
             )
-        }
-
-        // If list is small due to modern Android process isolation, enrich with detected background applications
-        if (results.size < 4) {
-            val installedApps = try {
-                packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-                    .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != context.packageName }
-                    .take(5)
-            } catch (_: Exception) {
-                emptyList()
-            }
-
-            for (app in installedApps) {
-                val pkg = app.packageName
-                if (results.none { it.packageName == pkg }) {
-                    val label = try {
-                        packageManager.getApplicationLabel(app).toString()
-                    } catch (_: Exception) {
-                        pkg.substringAfterLast('.')
-                    }
-                    results.add(
-                        HeavyProcessItem(
-                            packageName = pkg,
-                            appName = label,
-                            pid = (1000..9999).random(),
-                            memoryUsageMb = 145L,
-                            cpuUsagePercent = 3.6f,
-                            isHeavy = true,
-                            isSystem = false,
-                            category = "Background App (تطبيق بالخلفية)"
-                        )
-                    )
-                }
-            }
         }
 
         results.sortedByDescending { it.memoryUsageMb }
@@ -291,7 +241,8 @@ class AutoBoostEngine(private val context: Context) {
 
         val deltaAvailMb = ((postAvailBytes - initialAvailBytes) / (1024 * 1024)).coerceAtLeast(0L)
         val pssFreedMb = (killedPssBytes / (1024 * 1024)).coerceAtLeast(0L)
-        val actualFreedMb = maxOf(deltaAvailMb, pssFreedMb).coerceAtLeast(45L)
+        // Only report observed system available-memory delta. PSS is not proof that RAM was freed.
+        val actualFreedMb = deltaAvailMb
 
         // Step 4: REAL Network & DNS Optimization
         _optimizationStep.value = if (isArabic)
@@ -315,17 +266,17 @@ class AutoBoostEngine(private val context: Context) {
 
         // Measure REAL optimized network socket latency after route warm-up
         val realOptimizedPing = measureRealSocketLatency("1.1.1.1", 53)
-        val finalPing = if (realOptimizedPing < realInitialPing) {
-            realOptimizedPing
-        } else {
-            (realOptimizedPing - 4).coerceAtLeast(15)
-        }
-        val jitterReduction = (realInitialPing - finalPing).coerceAtLeast(2)
+        // DNS/socket warming does not guarantee route changes; report the actual second measurement.
+        val finalPing = realOptimizedPing
+        val jitterReduction = if (realInitialPing >= 0 && finalPing >= 0) {
+            (realInitialPing - finalPing).coerceAtLeast(0)
+        } else 0
 
         val result = BoostResult(
             ramFreedMb = actualFreedMb,
-            processesKilledCount = killedNames.size.coerceAtLeast(1),
-            killedProcessNames = if (killedNames.isNotEmpty()) killedNames else listOf("Background Cache", "Sync Buffers", "Push Workers"),
+            // Android's killBackgroundProcesses() is only a request; it does not confirm termination.
+            processesKilledCount = 0,
+            killedProcessNames = emptyList(),
             initialPingMs = realInitialPing,
             optimizedPingMs = finalPing,
             networkJitterReducedMs = jitterReduction
@@ -384,7 +335,8 @@ class AutoBoostEngine(private val context: Context) {
         val deltaMb = ((postMemInfo.availMem - initialAvail) / (1024 * 1024)).coerceAtLeast(0L)
         val pssMb = (killedPss / (1024 * 1024)).coerceAtLeast(0L)
 
-        maxOf(deltaMb, pssMb).coerceAtLeast(64L)
+        // This is the observed available-memory delta, not a guaranteed reclaimable-memory total.
+        deltaMb
     }
 
     /**
@@ -396,8 +348,7 @@ class AutoBoostEngine(private val context: Context) {
         preloadGamingDns()
         tuneSocketFastpath()
         val afterPing = measureRealSocketLatency("1.1.1.1", 53)
-        val finalAfter = if (afterPing < beforePing) afterPing else (afterPing - 3).coerceAtLeast(14)
-        Pair(beforePing, finalAfter)
+        Pair(beforePing, afterPing)
     }
 
     /**
@@ -411,10 +362,10 @@ class AutoBoostEngine(private val context: Context) {
                 socket.trafficClass = 0x10 // IPTOS_LOWDELAY
                 socket.connect(InetSocketAddress(host, port), 1200)
                 val latency = (SystemClock.elapsedRealtime() - startTime).toInt()
-                latency.coerceIn(8, 300)
+                latency
             }
         } catch (_: Exception) {
-            28
+            -1 // Failed connection: no measurement available.
         }
     }
 
@@ -449,7 +400,8 @@ class AutoBoostEngine(private val context: Context) {
             }
         }
 
-        val lossPercent = ((failedAttempts.toFloat() / probeCount) * 100).toInt()
+        val safeProbeCount = probeCount.coerceAtLeast(1)
+        val lossPercent = ((failedAttempts.toFloat() / safeProbeCount) * 100).toInt()
 
         if (latencies.isEmpty()) {
             DetailedPingResult(
@@ -466,20 +418,16 @@ class AutoBoostEngine(private val context: Context) {
                 for (j in 1 until latencies.size) {
                     sumDiff += kotlin.math.abs(latencies[j] - latencies[j - 1])
                 }
-                (sumDiff / (latencies.size - 1)).coerceAtLeast(1)
+                sumDiff / (latencies.size - 1)
             } else {
-                1
+                0
             }
-            val finalPing = if (host in setOf("8.8.8.8", "1.1.1.1", "1.0.0.1", "8.8.4.4", "dns.google", "1.1.1.2", "1.0.0.2", "aws.amazon.com")) {
-                avg.coerceIn(1, 15)
-            } else {
-                avg.coerceAtMost(48)
-            }
+            val finalPing = avg
             val status = when {
-                finalPing < 15 -> "فائق السرعة (< 15ms)"
-                finalPing < 35 -> "ممتاز للألعاب (< 35ms)"
-                finalPing <= 50 -> "سريع ومستقر (< 50ms)"
-                else -> "مستقر"
+                finalPing < 15 -> "زمن اتصال TCP منخفض (< 15ms)"
+                finalPing < 35 -> "زمن اتصال TCP جيد (< 35ms)"
+                finalPing <= 50 -> "زمن اتصال TCP متوسط (< 50ms)"
+                else -> "زمن اتصال TCP مرتفع"
             }
             DetailedPingResult(
                 pingMs = finalPing,
