@@ -215,7 +215,7 @@ fun FloatingGamingHud(
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "$fps",
+                        text = if (fps >= 0) "$fps" else "—",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Black,
                         color = fpsColor,
@@ -355,7 +355,7 @@ fun FloatingGamingHud(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Wifi,
                             label = if (isArabic) "الشبكة" else "Network",
-                            subText = "${pingMs}ms",
+                            subText = if (pingMs >= 0) "${pingMs}ms" else "—",
                             isActive = pingMs < 50,
                             accentColor = pingColor,
                             onClick = { }
@@ -366,7 +366,7 @@ fun FloatingGamingHud(
                             modifier = Modifier.weight(1f),
                             icon = if (isOverheating) Icons.Default.LocalFireDepartment else Icons.Default.Thermostat,
                             label = if (isArabic) "الحرارة" else "Temp",
-                            subText = "${batteryTemp.toInt()}°C",
+                            subText = if (batteryTemp >= 0f) "${batteryTemp.toInt()}°C" else "—",
                             isActive = !isOverheating,
                             accentColor = tempColor,
                             onClick = { onCoolDown() }
