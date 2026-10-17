@@ -456,9 +456,9 @@ fun NetworkOptimizerScreen(
                                                     if (isArabic) "تعذر الوصول" else "Unreachable"
                                                 } else if (ping != null) {
                                                     when {
-                                                        ping < 45 -> if (isArabic) "ممتاز للألعاب" else "Excellent"
-                                                        ping < 90 -> if (isArabic) "مستقر وسريع" else "Good & Stable"
-                                                        ping < 160 -> if (isArabic) "متوسط الاستجابة" else "Moderate"
+                                                        ping < 45 -> if (isArabic) "زمن اتصال TCP منخفض" else "Low TCP connect time"
+                                                        ping < 90 -> if (isArabic) "زمن اتصال TCP جيد" else "Good TCP connect time"
+                                                        ping < 160 -> if (isArabic) "زمن اتصال TCP متوسط" else "Moderate TCP connect time"
                                                         else -> if (isArabic) "تأخير مرتفع" else "High Latency"
                                                     }
                                                 } else {
@@ -605,7 +605,7 @@ fun NetworkOptimizerScreen(
             }
         }
 
-        // Section 4: All 8 Gaming Servers List with Category Switcher
+        // Section 4: Public TCP endpoints list with category switcher
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -615,7 +615,7 @@ fun NetworkOptimizerScreen(
                 ) {
                     Text(
                         text = if (isArabic) {
-                            if (selectedCategory == "ultra") "خوادم فائقة السرعة Ultra Ping (< 50ms)" else "خوادم الألعاب الإقليمية (${effectiveServers.size} مواقع)"
+                            if (selectedCategory == "ultra") "وجهات DNS عامة" else "وجهات اختبار متنوعة (${effectiveServers.size})"
                         } else {
                             if (selectedCategory == "ultra") "ULTRA-LOW PING NODES (< 50ms)" else "ALL REGIONAL GAMING NODES (${effectiveServers.size})"
                         },
@@ -634,7 +634,7 @@ fun NetworkOptimizerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Category Switcher Pill: Ultra Ping (< 50ms) vs Regional
+                // Category switcher: public DNS endpoints vs other public endpoints
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -858,7 +858,7 @@ fun NetworkOptimizerScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = if (isArabic) "تحسين خوادم DNS للألعاب" else "Gaming DNS Fastpath",
+                                text = if (isArabic) "تهيئة DNS (لا تضمن خفض Ping اللعبة)" else "DNS pre-resolution (does not guarantee lower game ping)",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PureWhite
