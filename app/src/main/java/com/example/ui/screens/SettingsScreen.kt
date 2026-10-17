@@ -1,5 +1,16 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +33,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -29,10 +42,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +56,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.ui.components.GlassCard
 import com.example.ui.theme.CardGlassSurface
 import com.example.ui.theme.DarkSlate
@@ -60,6 +80,40 @@ import com.example.ui.theme.TextPrimary
 fun SettingsScreen(
     isArabic: Boolean
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var notificationsGranted by remember { mutableStateOf(
+        NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+            (Build.VERSION.SDK_INT < 33 ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+    ) }
+    var accessibilityGranted by remember { mutableStateOf(false) }
+
+    fun refreshPermissionStates() {
+        overlayGranted = Settings.canDrawOverlays(context)
+        notificationsGranted = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+            (Build.VERSION.SDK_INT < 33 ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+        val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        accessibilityGranted = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == context.packageName &&
+                it.resolveInfo.serviceInfo.name == "com.example.GlassBoostAccessibilityService" }
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { refreshPermissionStates() }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshPermissionStates()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        refreshPermissionStates()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var selectedPerformanceMode by remember { mutableStateOf("MAX") }
     var autoBoostEnabled by remember { mutableStateOf(true) }
     var autoOptimizeGamesEnabled by remember { mutableStateOf(true) }
@@ -270,6 +324,63 @@ fun SettingsScreen(
             }
         }
 
+        // Section: Android permissions. Each status is refreshed when returning from system settings.
+        item {
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = if (isArabic) "أذونات أندرويد المطلوبة" else "Required Android permissions",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonCyan
+                    )
+                    Text(
+                        text = if (isArabic) "افتح كل إعداد من هنا، ثم ارجع للتطبيق للتحقق من حالة الإذن." else "Open each system setting here, then return to verify the permission.",
+                        fontSize = 10.sp,
+                        color = SlateBlueMuted
+                    )
+
+                    PermissionSettingRow(
+                        title = if (isArabic) "الظهور فوق التطبيقات" else "Display over other apps",
+                        description = if (isArabic) "مطلوب لإظهار لوحة الأداء العائمة." else "Required for the floating performance HUD.",
+                        granted = overlayGranted,
+                        isArabic = isArabic,
+                        onClick = {
+                            if (!overlayGranted) {
+                                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                            } else {
+                                refreshPermissionStates()
+                            }
+                        }
+                    )
+
+                    PermissionSettingRow(
+                        title = if (isArabic) "الإشعارات" else "Notifications",
+                        description = if (isArabic) "مطلوبة لإظهار إشعار الخدمة الأمامية أثناء تشغيل اللوحة." else "Used for the foreground-service notification while the HUD runs.",
+                        granted = notificationsGranted,
+                        isArabic = isArabic,
+                        onClick = {
+                            when {
+                                notificationsGranted -> refreshPermissionStates()
+                                Build.VERSION.SDK_INT >= 33 &&
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ->
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                else -> context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                            }
+                        }
+                    )
+
+                    PermissionSettingRow(
+                        title = if (isArabic) "إمكانية الوصول" else "Accessibility",
+                        description = if (isArabic) "افتح قائمة خدمات إمكانية الوصول وفعّل GlassBoost يدويًا إذا كنت تحتاجها." else "Open Accessibility settings and enable GlassBoost manually if you need it.",
+                        granted = accessibilityGranted,
+                        isArabic = isArabic,
+                        onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                    )
+                }
+            }
+        }
+
         // Section 3: About GlassBoost
         item {
             Box(
@@ -305,6 +416,50 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+
+@Composable
+private fun PermissionSettingRow(
+    title: String,
+    description: String,
+    granted: Boolean,
+    isArabic: Boolean,
+    onClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PureWhite)
+                Text(description, fontSize = 10.sp, color = SlateBlueMuted)
+            }
+            Text(
+                text = if (granted) { if (isArabic) "مفعّل" else "Granted" }
+                       else { if (isArabic) "غير مفعّل" else "Not granted" },
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (granted) NeonCyan else RoyalGold
+            )
+        }
+        Button(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = DeepGlassNavy,
+                contentColor = NeonCyan
+            )
+        ) {
+            Text(
+                text = if (granted) { if (isArabic) "التحقق من الحالة" else "Check status" }
+                       else { if (isArabic) "فتح الإعدادات" else "Open settings" },
+                fontSize = 11.sp
+            )
         }
     }
 }
