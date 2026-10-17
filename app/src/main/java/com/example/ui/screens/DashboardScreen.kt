@@ -137,7 +137,7 @@ fun DashboardScreen(
     val ramTotalGb = (currentMetrics.ramTotalMb / 1024.0).let { String.format("%.0f", it) }
     val ramRatioPercent = if (currentMetrics.ramTotalMb > 0) {
         ((currentMetrics.ramUsedMb.toFloat() / currentMetrics.ramTotalMb.toFloat()) * 100).toInt()
-    } else 56
+    } else -1
 
     Column(
         modifier = Modifier
@@ -343,9 +343,9 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Memory,
                 label = "RAM",
-                mainValue = "$ramRatioPercent%",
-                subtitle = "$ramUsedGb GB / $ramTotalGb GB",
-                isPositive = ramRatioPercent < 80
+                mainValue = if (ramRatioPercent >= 0) "$ramRatioPercent%" else "—",
+                subtitle = if (currentMetrics.ramTotalMb > 0) "$ramUsedGb GB / $ramTotalGb GB" else if (isArabic) "القياس غير متاح" else "Unavailable",
+                isPositive = ramRatioPercent in 0..79
             )
 
             // Card 2: CPU
