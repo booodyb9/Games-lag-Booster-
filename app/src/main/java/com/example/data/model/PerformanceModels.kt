@@ -64,7 +64,9 @@ data class BoostResult(
     val initialPingMs: Int,
     val optimizedPingMs: Int,
     val networkJitterReducedMs: Int,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val cacheDeletedBytes: Long = 0L,
+    val cleanupFailures: Int = 0
 )
 
 /**

@@ -68,6 +68,7 @@ fun GameLauncherScreen(
     deviceInstalledApps: List<GameItem> = emptyList(),
     isArabic: Boolean,
     onLaunchGame: (GameItem) -> Unit,
+    onSaveProfile: (GameItem) -> Unit = {},
     onAddGameFromDevice: (GameItem) -> Unit,
     onRemoveGame: (packageName: String) -> Unit = {},
     onAddCustomGame: (name: String, pkg: String) -> Unit
@@ -614,8 +615,8 @@ fun GameLauncherScreen(
     // Modal: GFX Tuning Dialog
     if (tuningGame != null) {
         val game = tuningGame!!
-        var targetFps by remember { mutableIntStateOf(game.targetFps) }
-        var resPreset by remember { mutableStateOf(game.resolutionPreset) }
+        var targetFps by remember(game.packageName) { mutableIntStateOf(game.targetFps) }
+        var resPreset by remember(game.packageName) { mutableStateOf(game.resolutionPreset) }
 
         AlertDialog(
             onDismissRequest = { tuningGame = null },
@@ -630,7 +631,14 @@ fun GameLauncherScreen(
             text = {
                 Column {
                     Text(
-                        text = if (isArabic) "معدل الإطارات المستهدف (Target FPS):" else "Target Frame Rate Lock:",
+                        text = if (isArabic) "هذا ملف تفضيلات محفوظ. طبّق القيم من إعدادات اللعبة؛ Android لا يسمح لهذا التطبيق بفرضها على لعبة أخرى."
+                        else "Saved reference profile. Apply these values in the game's own settings; Android does not let this app force them on another game.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isArabic) "معدل الإطارات المستهدف (Target FPS):" else "Preferred FPS (reference):",
                         fontSize = 12.sp,
                         color = TextSecondary,
                         fontWeight = FontWeight.SemiBold
@@ -699,7 +707,10 @@ fun GameLauncherScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { tuningGame = null }) {
+                TextButton(onClick = {
+                    onSaveProfile(game.copy(targetFps = targetFps, resolutionPreset = resPreset))
+                    tuningGame = null
+                }) {
                     Text(
                         text = if (isArabic) "حفظ التعديلات" else "Save Settings",
                         color = RoyalGold,

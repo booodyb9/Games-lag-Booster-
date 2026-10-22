@@ -138,7 +138,7 @@ fun SessionHistoryScreen(
                             text = if (isRecording) {
                                 if (isArabic) "تسجيل مباشر لجلسة: $recordingGameTitle" else "Recording Live: $recordingGameTitle"
                             } else {
-                                if (isArabic) "تسجيل مقاييس أداء جديدة (FPS / Ping / CPU / GPU)" else "Track & Record New Gaming Session"
+                                if (isArabic) "تسجيل قياسات النظام ووقت اتصال TCP؛ FPS اللعبة غير متاح" else "Track & Record New Gaming Session"
                             },
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -305,7 +305,7 @@ fun SessionHistoryScreen(
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${session.averageFps} FPS • ${session.averagePing}ms • ${session.durationSeconds / 60}m",
+                            text = "FPS: ${if (session.averageFps >= 0) session.averageFps else "—"} • TCP: ${if (session.averagePing >= 0) "${session.averagePing}ms" else "—"} • ${session.durationSeconds / 60}m",
                             fontSize = 11.sp,
                             color = if (isSelected) GlassCyan else TextMuted
                         )
@@ -420,19 +420,19 @@ fun SessionHistoryScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = if (isArabic) "معدل FPS" else "AVG FPS",
+                                    text = if (isArabic) "FPS اللعبة (إن توفر)" else "AVG FPS",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = PerformanceGreen
                                 )
                                 Text(
-                                    text = "${selectedSession.averageFps}",
+                                    text = if (selectedSession.averageFps >= 0) "${selectedSession.averageFps}" else "—",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "Min: ${selectedSession.minFps} | Max: ${selectedSession.maxFps}",
+                                    text = if (selectedSession.minFps >= 0) "Min: ${selectedSession.minFps} | Max: ${selectedSession.maxFps}" else if (isArabic) "FPS اللعبة غير متاح" else "Game FPS unavailable",
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
@@ -456,13 +456,13 @@ fun SessionHistoryScreen(
                                     color = GlassBlue
                                 )
                                 Text(
-                                    text = "${selectedSession.averagePing} ms",
+                                    text = if (selectedSession.averagePing >= 0) "${selectedSession.averagePing} ms" else "—",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "Peak: ${selectedSession.maxPing} ms",
+                                    text = if (selectedSession.maxPing >= 0) "Peak TCP: ${selectedSession.maxPing} ms" else "—",
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
@@ -493,7 +493,7 @@ fun SessionHistoryScreen(
                                     color = RoyalGold
                                 )
                                 Text(
-                                    text = "${selectedSession.averageCpu}%",
+                                    text = if (selectedSession.averageCpu >= 0) "${selectedSession.averageCpu}%" else "—",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
@@ -523,13 +523,13 @@ fun SessionHistoryScreen(
                                     color = PerformancePurple
                                 )
                                 Text(
-                                    text = "${selectedSession.averageGpu}%",
+                                    text = if (selectedSession.averageGpu >= 0) "${selectedSession.averageGpu}%" else "—",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "Stability: ${selectedSession.stabilityScore}%",
+                                    text = if (selectedSession.stabilityScore >= 0) "Stability: ${selectedSession.stabilityScore}%" else "Stability: —",
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
