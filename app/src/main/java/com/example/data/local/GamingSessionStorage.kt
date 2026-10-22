@@ -184,7 +184,9 @@ class GamingSessionStorage(private val context: Context) {
 
     fun updateGameProfile(game: GameItem) {
         require(game.targetFps in listOf(60, 90, 120))
-        val updated = _games.value.map { if (it.packageName == game.packageName) game else it }
+        val updated = if (_games.value.any { it.packageName == game.packageName }) {
+            _games.value.map { if (it.packageName == game.packageName) game else it }
+        } else _games.value + game
         _games.value = updated
         saveGamesToPrefs(updated)
     }
@@ -279,6 +281,7 @@ class GamingSessionStorage(private val context: Context) {
                 put("startTime", session.startTime)
                 put("endTime", session.endTime)
                 put("durationSeconds", session.durationSeconds)
+                put("measurementVersion", 2)
                 put("averageFps", session.averageFps.toDouble())
                 put("minFps", session.minFps)
                 put("maxFps", session.maxFps)
@@ -316,6 +319,7 @@ class GamingSessionStorage(private val context: Context) {
         val jsonArray = JSONArray(raw)
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
+            val currentMeasurements = obj.optInt("measurementVersion", 0) >= 2
             val snaps = mutableListOf<PerformanceSnapshot>()
             val snapArr = obj.optJSONArray("snapshots")
             if (snapArr != null) {
@@ -324,7 +328,7 @@ class GamingSessionStorage(private val context: Context) {
                     snaps.add(
                         PerformanceSnapshot(
                             timestamp = s.optLong("t"),
-                            fps = s.optInt("fps", -1),
+                            fps = if (currentMeasurements) s.optInt("fps", -1) else -1,
                             pingMs = s.optInt("ping", -1),
                             cpuUsagePercent = s.optInt("cpu", -1),
                             gpuUsagePercent = s.optInt("gpu", -1),
@@ -345,15 +349,15 @@ class GamingSessionStorage(private val context: Context) {
                     startTime = obj.getLong("startTime"),
                     endTime = obj.getLong("endTime"),
                     durationSeconds = obj.getLong("durationSeconds"),
-                    averageFps = obj.getDouble("averageFps").toFloat(),
-                    minFps = obj.getInt("minFps"),
-                    maxFps = obj.getInt("maxFps"),
+                    averageFps = if (currentMeasurements) obj.getDouble("averageFps").toFloat() else -1f,
+                    minFps = if (currentMeasurements) obj.getInt("minFps") else -1,
+                    maxFps = if (currentMeasurements) obj.getInt("maxFps") else -1,
                     averagePing = obj.getInt("averagePing"),
                     maxPing = obj.getInt("maxPing"),
                     averageCpu = obj.getDouble("averageCpu").toFloat(),
                     averageGpu = obj.getDouble("averageGpu").toFloat(),
-                    ramFreedMb = obj.optLong("ramFreedMb", 0),
-                    stabilityScore = obj.optInt("stabilityScore", -1),
+                    ramFreedMb = if (currentMeasurements) obj.optLong("ramFreedMb", 0) else 0L,
+                    stabilityScore = if (currentMeasurements) obj.optInt("stabilityScore", -1) else -1,
                     snapshots = snaps
                 )
             )

@@ -133,6 +133,20 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (Settings.canDrawOverlays(this)) {
+            startHudWithNotificationPermission()
+        }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { FloatingPanelService.start(this) }
+
+    private fun startHudWithNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
             FloatingPanelService.start(this)
         }
     }
@@ -156,7 +170,7 @@ class MainActivity : ComponentActivity() {
                     onToggleFloatingHud = { enable ->
                         if (enable) {
                             if (Settings.canDrawOverlays(this)) {
-                                FloatingPanelService.start(this)
+                                startHudWithNotificationPermission()
                             } else {
                                 val intent = Intent(
                                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -296,6 +310,9 @@ fun MainAppRoot(
 
     var selectedPingServerId by remember {
         mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "ultra_google_core") ?: "ultra_google_core")
+    }
+    LaunchedEffect(Unit) {
+        autoBoostEngine.setServerCategory(sharedPrefs.getString("selected_ping_category", "ultra") ?: "ultra")
     }
     var isOptimizingNetwork by remember { mutableStateOf(false) }
     var networkOptimizationDone by remember { mutableStateOf(false) }
@@ -600,7 +617,7 @@ fun MainAppRoot(
                                     )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(
-                                        text = if (isArabic) "تسريع" else "BOOST",
+                                        text = if (isArabic) "تحضير" else "PREPARE",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Black,
                                         color = ObsidianBlack
@@ -700,7 +717,7 @@ fun MainAppRoot(
                                         if (preparationOptions.autoPrepare && game.isTurboEnabled) {
                                             autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                         }
-                                        if (preparationOptions.dndOnLaunch) setGameMode(true)
+                                        if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         if (onLaunchGameIntent(game)) {
                                             sessionStorage.startRecording(game.appName, game.packageName)
                                         }
@@ -726,7 +743,7 @@ fun MainAppRoot(
                                         if (preparationOptions.autoPrepare && game.isTurboEnabled) {
                                             autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                         }
-                                        if (preparationOptions.dndOnLaunch) setGameMode(true)
+                                        if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         if (onLaunchGameIntent(game)) {
                                             sessionStorage.startRecording(game.appName, game.packageName)
                                         }
@@ -820,6 +837,7 @@ fun MainAppRoot(
                                                 sharedPrefs.edit().putString("selected_ping_server_id", newId).apply()
                                             },
                                             onSelectCategory = { cat ->
+                                                sharedPrefs.edit().putString("selected_ping_category", cat).apply()
                                                 autoBoostEngine.setServerCategory(cat)
                                                 val firstId = if (cat == "regional") "riyadh" else "ultra_google_core"
                                                 selectedPingServerId = firstId
@@ -886,7 +904,11 @@ fun MainAppRoot(
                             SettingsScreen(
                                     isArabic = isArabic,
                                     options = preparationOptions,
-                                    onOptionsChanged = { preparationOptions = it; preferences.save(it) },
+                                    onOptionsChanged = {
+                                        preparationOptions = it
+                                        preferences.save(it)
+                                        if (it.dndOnLaunch && !gameModeController.hasAccess) openDndSettings()
+                                    },
                                     onDndSettings = { openDndSettings() }
                                 )
                         }
@@ -1045,7 +1067,7 @@ fun AboutGlassBoostDialog(
             Column {
                 Text(
                     text = if (isArabic)
-                        "تطبيق GlassBoost لتسريع وتحسين أداء الألعاب، خفض البنج، مراقبة الإطارات (FPS)، وتنظيف الذاكرة بلوحة عائمة شفافة."
+                        "GlassBoost لتحضير جلسة اللعب وتنظيف كاش التطبيق وقياس RAM والحرارة واتصال TCP، مع شاشة عائمة اختيارية."
                     else
                         "GlassBoost delivers esports-grade performance optimization, real socket ping tuning, live FPS & thermal HUD, and hardware unleash.",
                     fontSize = 13.sp,

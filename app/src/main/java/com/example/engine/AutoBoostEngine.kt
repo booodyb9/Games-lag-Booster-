@@ -9,6 +9,7 @@ import com.example.data.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.InetAddress
@@ -54,9 +55,9 @@ class AutoBoostEngine(private val context: Context) {
         try {
             val result = measureDetailedServerPing(target.host, target.port)
             // Update only matching targets; switching category during a test must not undo the switch.
-            _pingServers.value = _pingServers.value.map {
+            _pingServers.update { current -> current.map {
                 if (it.id == target.id) applyProbe(it, result) else it
-            }
+            } }
         } finally {
             _isTestingSingleServer.value = false
         }
@@ -69,7 +70,7 @@ class AutoBoostEngine(private val context: Context) {
             val tested = coroutineScope {
                 targets.map { target -> async { applyProbe(target, measureDetailedServerPing(target.host, target.port)) } }.awaitAll()
             }.associateBy { it.id }
-            _pingServers.value = _pingServers.value.map { tested[it.id] ?: it }
+            _pingServers.update { current -> current.map { tested[it.id] ?: it } }
         } finally {
             _isTestingNetwork.value = false
         }

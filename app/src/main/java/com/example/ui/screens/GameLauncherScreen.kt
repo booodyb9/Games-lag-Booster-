@@ -1158,7 +1158,7 @@ fun GameListItemRow(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isArabic) "أداء محسّن" else "Optimized • 120 FPS",
+                        text = if (isArabic) "ملف تفضيلات محفوظ" else "Saved preference profile",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )

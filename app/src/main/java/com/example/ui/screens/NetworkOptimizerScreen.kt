@@ -833,7 +833,7 @@ fun NetworkOptimizerScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isArabic) "تحسين استقرار الاتصال وتقليل تقلبات البنج" else "Network stability locked & socket fastpath primed",
+                        text = if (isArabic) "تهيئة اختبارات هذا التطبيق؛ لا تغيّر اتصال اللعبة" else "Warm-up for this app only; game routes are unchanged",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )

@@ -271,8 +271,8 @@ data class GameItem(
 )
 
 enum class BoosterMode(val labelAr: String, val labelEn: String, val descAr: String, val descEn: String) {
-    ULTRA("وضع التوربو الأقصى", "Ultra Turbo", "أقصى أداء مع إزالة اللاغ تماماً وتثبيت الإطارات", "Max performance, zero lag, frame stability locked"),
+    ULTRA("وضع التوربو الأقصى", "Ultra Turbo", "تحضير اللعبة وفق الخيارات المحفوظة", "Prepare using saved options"),
     BALANCED("الوضع المتوازن", "Balanced", "توازن مثالي بين الأداء واستهلاك البطارية", "Optimal balance between speed and battery efficiency"),
-    BATTERY_SAVER("توفير الطاقة للألعاب", "Battery Saver", "لعب سلس مع خفض حرارة المعالج واستهلاك الطاقة", "Smooth gameplay while reducing thermal heat and drain"),
-    ESPORTS("وضع بطولات الرياضات الإلكترونية", "Esports Tournament", "تثبيت زمن الاستجابة (Ping) مع حظر الإشعارات", "Lowest latency lock with background process freeze")
+    BATTERY_SAVER("توفير الطاقة للألعاب", "Battery Saver", "راجع إعدادات الطاقة في الهاتف", "Review phone power settings"),
+    ESPORTS("وضع بطولات الرياضات الإلكترونية", "Esports Tournament", "تقليل المقاطعات بعد إذن عدم الإزعاج", "Reduce interruptions with approved Do Not Disturb")
 }
