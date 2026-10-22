@@ -82,4 +82,19 @@ class PreparationToolsTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         assertFalse(AutoBoostEngine(context).killSingleProcess("test.other.app"))
     }
+
+    @Test fun failedLocalProbeClearsBusyStateAndRecordsUnavailable() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val engine = AutoBoostEngine(context)
+        // TCP destination port zero cannot host a listening service.
+        val target = engine.pingServers.value.first().copy(host = "127.0.0.1", port = 0)
+        engine.testSingleServer(target)
+        val result = engine.pingServers.value.first { it.id == target.id }
+        assertTrue(result.isFailed)
+        assertNull(result.currentPingMs)
+        assertNull(result.jitterMs)
+        assertEquals(100, result.packetLossPercent)
+        assertNotNull(result.lastTestedTimestamp)
+        assertFalse(engine.isTestingSingleServer.value)
+    }
 }
