@@ -14,7 +14,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
-import kotlin.random.Random
 
 /**
  * Handles persistent storage of gaming sessions, telemetry snapshots,
@@ -52,15 +51,13 @@ class GamingSessionStorage(private val context: Context) {
     private fun loadSessions() {
         val rawJson = prefs.getString("saved_sessions", null)
         if (rawJson.isNullOrEmpty()) {
-            val initialSessions = generateInitialDemoSessions()
-            _sessions.value = initialSessions
-            saveSessionsToPrefs(initialSessions)
+            _sessions.value = emptyList()
         } else {
             try {
                 val list = parseSessionsFromJson(rawJson)
-                _sessions.value = if (list.isNotEmpty()) list else generateInitialDemoSessions()
+                _sessions.value = list.filterNot { it.id.startsWith("demo-") }
             } catch (_: Exception) {
-                _sessions.value = generateInitialDemoSessions()
+                _sessions.value = emptyList()
             }
         }
     }
@@ -110,16 +107,19 @@ class GamingSessionStorage(private val context: Context) {
         val endTime = System.currentTimeMillis()
         val duration = ((endTime - activeStartTime) / 1000).coerceAtLeast(1)
 
-        val avgFps = activeSnapshots.map { it.fps }.average().toFloat()
-        val minFps = activeSnapshots.minOfOrNull { it.fps } ?: 55
-        val maxFps = activeSnapshots.maxOfOrNull { it.fps } ?: 60
-        val avgPing = activeSnapshots.map { it.pingMs }.average().toInt()
-        val maxPing = activeSnapshots.maxOfOrNull { it.pingMs } ?: 45
-        val avgCpu = activeSnapshots.map { it.cpuUsagePercent }.average().toFloat()
-        val avgGpu = activeSnapshots.map { it.gpuUsagePercent }.average().toFloat()
-
-        val fpsVariability = maxFps - minFps
-        val stability = (100 - (fpsVariability * 1.5f)).toInt().coerceIn(70, 99)
+        val fpsValues = activeSnapshots.map { it.fps }.filter { it >= 0 }
+        fun average(values: List<Int>): Float =
+            values.filter { it >= 0 }.takeIf { it.isNotEmpty() }?.average()?.toFloat() ?: -1f
+        val avgFps = average(fpsValues)
+        val minFps = fpsValues.minOrNull() ?: -1
+        val maxFps = fpsValues.maxOrNull() ?: -1
+        val avgPing = average(activeSnapshots.map { it.pingMs }).toInt()
+        val maxPing = activeSnapshots.map { it.pingMs }.filter { it >= 0 }.maxOrNull() ?: -1
+        val avgCpu = average(activeSnapshots.map { it.cpuUsagePercent })
+        val avgGpu = average(activeSnapshots.map { it.gpuUsagePercent })
+        val stability = if (fpsValues.size >= 2) {
+            (100 - ((maxFps - minFps) * 1.5f)).toInt().coerceIn(0, 100)
+        } else -1
 
         val session = GamingSession(
             id = activeSessionId ?: UUID.randomUUID().toString(),
@@ -135,7 +135,7 @@ class GamingSessionStorage(private val context: Context) {
             maxPing = maxPing,
             averageCpu = (avgCpu * 10).toInt() / 10f,
             averageGpu = (avgGpu * 10).toInt() / 10f,
-            ramFreedMb = 512L,
+            ramFreedMb = 0L,
             stabilityScore = stability,
             snapshots = activeSnapshots.toList()
         )
@@ -180,6 +180,15 @@ class GamingSessionStorage(private val context: Context) {
             _games.value = updated
             saveGamesToPrefs(updated)
         }
+    }
+
+    fun updateGameProfile(game: GameItem) {
+        require(game.targetFps in listOf(60, 90, 120))
+        val updated = if (_games.value.any { it.packageName == game.packageName }) {
+            _games.value.map { if (it.packageName == game.packageName) game else it }
+        } else _games.value + game
+        _games.value = updated
+        saveGamesToPrefs(updated)
     }
 
     fun removeGame(packageName: String) {
@@ -272,6 +281,7 @@ class GamingSessionStorage(private val context: Context) {
                 put("startTime", session.startTime)
                 put("endTime", session.endTime)
                 put("durationSeconds", session.durationSeconds)
+                put("measurementVersion", 2)
                 put("averageFps", session.averageFps.toDouble())
                 put("minFps", session.minFps)
                 put("maxFps", session.maxFps)
@@ -294,6 +304,7 @@ class GamingSessionStorage(private val context: Context) {
                         put("totalRam", s.ramTotalMb)
                         put("temp", s.batteryTemp.toDouble())
                         put("thermal", s.thermalState)
+                        put("battery", s.batteryLevelPercent)
                     }
                     snapArr.put(sObj)
                 }
@@ -309,6 +320,7 @@ class GamingSessionStorage(private val context: Context) {
         val jsonArray = JSONArray(raw)
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
+            val currentMeasurements = obj.optInt("measurementVersion", 0) >= 2
             val snaps = mutableListOf<PerformanceSnapshot>()
             val snapArr = obj.optJSONArray("snapshots")
             if (snapArr != null) {
@@ -317,19 +329,22 @@ class GamingSessionStorage(private val context: Context) {
                     snaps.add(
                         PerformanceSnapshot(
                             timestamp = s.optLong("t"),
-                            fps = s.optInt("fps", 60),
-                            pingMs = s.optInt("ping", 28),
-                            cpuUsagePercent = s.optInt("cpu", 30),
-                            gpuUsagePercent = s.optInt("gpu", 40),
-                            ramUsedMb = s.optLong("ram", 3200),
-                            ramTotalMb = s.optLong("totalRam", 8192),
-                            batteryTemp = s.optDouble("temp", 33.0).toFloat(),
-                            thermalState = s.optString("thermal", "Normal")
+                            fps = if (currentMeasurements) s.optInt("fps", -1) else -1,
+                            pingMs = s.optInt("ping", -1),
+                            cpuUsagePercent = s.optInt("cpu", -1),
+                            gpuUsagePercent = s.optInt("gpu", -1),
+                            ramUsedMb = s.optLong("ram", 0),
+                            ramTotalMb = s.optLong("totalRam", 0),
+                            batteryTemp = s.optDouble("temp", -1.0).toFloat(),
+                            thermalState = s.optString("thermal", "Unknown"),
+                            batteryLevelPercent = s.optInt("battery", -1)
                         )
                     )
                 }
             }
 
+            fun legacyAverage(values: List<Int>): Float =
+                values.filter { it >= 0 }.takeIf { it.isNotEmpty() }?.average()?.toFloat() ?: -1f
             list.add(
                 GamingSession(
                     id = obj.getString("id"),
@@ -338,15 +353,15 @@ class GamingSessionStorage(private val context: Context) {
                     startTime = obj.getLong("startTime"),
                     endTime = obj.getLong("endTime"),
                     durationSeconds = obj.getLong("durationSeconds"),
-                    averageFps = obj.getDouble("averageFps").toFloat(),
-                    minFps = obj.getInt("minFps"),
-                    maxFps = obj.getInt("maxFps"),
-                    averagePing = obj.getInt("averagePing"),
-                    maxPing = obj.getInt("maxPing"),
-                    averageCpu = obj.getDouble("averageCpu").toFloat(),
-                    averageGpu = obj.getDouble("averageGpu").toFloat(),
-                    ramFreedMb = obj.optLong("ramFreedMb", 512),
-                    stabilityScore = obj.optInt("stabilityScore", 96),
+                    averageFps = if (currentMeasurements) obj.getDouble("averageFps").toFloat() else -1f,
+                    minFps = if (currentMeasurements) obj.getInt("minFps") else -1,
+                    maxFps = if (currentMeasurements) obj.getInt("maxFps") else -1,
+                    averagePing = if (currentMeasurements) obj.getInt("averagePing") else legacyAverage(snaps.map { it.pingMs }).toInt(),
+                    maxPing = if (currentMeasurements) obj.getInt("maxPing") else snaps.map { it.pingMs }.filter { it >= 0 }.maxOrNull() ?: -1,
+                    averageCpu = if (currentMeasurements) obj.getDouble("averageCpu").toFloat() else legacyAverage(snaps.map { it.cpuUsagePercent }),
+                    averageGpu = if (currentMeasurements) obj.getDouble("averageGpu").toFloat() else legacyAverage(snaps.map { it.gpuUsagePercent }),
+                    ramFreedMb = if (currentMeasurements) obj.optLong("ramFreedMb", 0) else 0L,
+                    stabilityScore = if (currentMeasurements) obj.optInt("stabilityScore", -1) else -1,
                     snapshots = snaps
                 )
             )
@@ -391,91 +406,4 @@ class GamingSessionStorage(private val context: Context) {
         return list
     }
 
-    private fun generateInitialDemoSessions(): List<GamingSession> {
-        val now = System.currentTimeMillis()
-
-        // Session 1: PUBG Mobile 90FPS competitive match
-        val pubgSnapshots = mutableListOf<PerformanceSnapshot>()
-        for (t in 0..40) {
-            val fpsVal = (88 + Random.nextInt(-3, 3)).coerceIn(75, 90)
-            val pingVal = (24 + Random.nextInt(-3, 6)).coerceIn(18, 48)
-            val cpuVal = (38 + Random.nextInt(-5, 9)).coerceIn(25, 60)
-            val gpuVal = (52 + Random.nextInt(-6, 8)).coerceIn(35, 75)
-            pubgSnapshots.add(
-                PerformanceSnapshot(
-                    timestamp = now - (40 - t) * 5000L,
-                    fps = fpsVal,
-                    pingMs = pingVal,
-                    cpuUsagePercent = cpuVal,
-                    gpuUsagePercent = gpuVal,
-                    ramUsedMb = 3450 + t * 5L,
-                    ramTotalMb = 8192,
-                    batteryTemp = 34.2f + (t * 0.05f),
-                    thermalState = "Cool (بارد)"
-                )
-            )
-        }
-
-        val s1 = GamingSession(
-            id = "demo-pubg-01",
-            gameTitle = "PUBG Mobile (ببجي موبايل)",
-            packageName = "com.tencent.ig",
-            startTime = now - 1800000L,
-            endTime = now - 600000L,
-            durationSeconds = 1200,
-            averageFps = 88.4f,
-            minFps = 82,
-            maxFps = 90,
-            averagePing = 26,
-            maxPing = 38,
-            averageCpu = 42.1f,
-            averageGpu = 56.7f,
-            ramFreedMb = 720L,
-            stabilityScore = 98,
-            snapshots = pubgSnapshots
-        )
-
-        // Session 2: Call of Duty Warzone Mobile
-        val codSnapshots = mutableListOf<PerformanceSnapshot>()
-        for (t in 0..35) {
-            val fpsVal = (116 + Random.nextInt(-7, 5)).coerceIn(100, 120)
-            val pingVal = (32 + Random.nextInt(-4, 9)).coerceIn(22, 58)
-            val cpuVal = (48 + Random.nextInt(-8, 12)).coerceIn(30, 72)
-            val gpuVal = (68 + Random.nextInt(-7, 9)).coerceIn(45, 88)
-            codSnapshots.add(
-                PerformanceSnapshot(
-                    timestamp = now - (35 - t) * 6000L,
-                    fps = fpsVal,
-                    pingMs = pingVal,
-                    cpuUsagePercent = cpuVal,
-                    gpuUsagePercent = gpuVal,
-                    ramUsedMb = 4100 + t * 8L,
-                    ramTotalMb = 8192,
-                    batteryTemp = 36.8f,
-                    thermalState = "Normal (معتدل)"
-                )
-            )
-        }
-
-        val s2 = GamingSession(
-            id = "demo-cod-02",
-            gameTitle = "COD: Warzone Mobile (كول أوف ديوتي)",
-            packageName = "com.activision.callofduty.warzone",
-            startTime = now - 7200000L,
-            endTime = now - 5400000L,
-            durationSeconds = 1800,
-            averageFps = 114.2f,
-            minFps = 104,
-            maxFps = 120,
-            averagePing = 34,
-            maxPing = 52,
-            averageCpu = 52.8f,
-            averageGpu = 72.1f,
-            ramFreedMb = 940L,
-            stabilityScore = 95,
-            snapshots = codSnapshots
-        )
-
-        return listOf(s1, s2)
-    }
 }

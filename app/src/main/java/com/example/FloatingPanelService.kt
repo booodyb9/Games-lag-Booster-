@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Android Foreground Service hosting a pure Jetpack Compose Floating Gaming HUD
- * with real-time FPS, Ping, thermal overheat monitoring, and customizable opacity.
+ * with system memory, public TCP timings, battery temperature, and customizable opacity.
  */
 class FloatingPanelService : Service() {
 
@@ -55,16 +55,19 @@ class FloatingPanelService : Service() {
     private var monitorEngine: PerformanceMonitorEngine? = null
     private var autoBoostEngine: AutoBoostEngine? = null
 
-    private val _hudOpacity = MutableStateFlow(0.90f)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+            return
+        }
         startForegroundServiceNotification()
 
         val prefs = getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
-        _hudOpacity.value = prefs.getFloat("hud_opacity", 0.90f)
+        _hudOpacity.value = prefs.getFloat("hud_opacity", 0.70f).coerceIn(0.2f, 1f)
 
         monitorEngine = PerformanceMonitorEngine(applicationContext)
         autoBoostEngine = AutoBoostEngine(applicationContext)
@@ -93,7 +96,7 @@ class FloatingPanelService : Service() {
                 "GlassBoost Floating HUD",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Real-time Compose FPS, Ping, and Memory HUD over games"
+                description = "Optional system RAM, TCP timing and battery temperature overlay"
                 setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
@@ -111,7 +114,7 @@ class FloatingPanelService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("GlassBoost • Compose Floating HUD")
-            .setContentText("Active FPS, Ping & Thermal monitor running over games")
+            .setContentText("System RAM, TCP timing & battery temperature monitor active")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -159,9 +162,13 @@ class FloatingPanelService : Service() {
                 MyApplicationTheme {
                     val metricsState by (monitorEngine?.currentMetrics ?: return@MyApplicationTheme).collectAsState()
                     val opacityState by _hudOpacity.collectAsState()
+                    val preparing by autoBoostEngine!!.isOptimizing.collectAsState()
+                    val result by autoBoostEngine!!.lastBoostResult.collectAsState()
 
                     FloatingGamingHud(
                         fps = metricsState.fps,
+                        isPreparing = preparing,
+                        cleanupBytes = result?.cacheDeletedBytes,
                         pingMs = metricsState.pingMs,
                         cpuPercent = metricsState.cpuUsagePercent,
                         ramUsedMb = metricsState.ramUsedMb,
@@ -179,10 +186,11 @@ class FloatingPanelService : Service() {
                             }
                         },
                         onCoolDown = {
-                            serviceScope.launch {
-                                autoBoostEngine?.clearCachedBackgroundMemory()
-                            }
+                            android.widget.Toast.makeText(this@FloatingPanelService,
+                                "اترك الهاتف يبرد وأوقف اللعب عند السخونة؛ التنظيف لا يبرّد المعالج.",
+                                android.widget.Toast.LENGTH_LONG).show()
                         },
+                        onOpacityChanged = { updateOpacity(this@FloatingPanelService, it) },
                         onClose = {
                             stopSelf()
                         },
@@ -251,11 +259,15 @@ class FloatingPanelService : Service() {
 
         try {
             windowManager?.addView(composeView, params)
-        } catch (_: Exception) {}
+            _running.value = true
+        } catch (_: Exception) {
+            stopSelf()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        _running.value = false
         monitorEngine?.stop()
         serviceScope.cancel()
 
@@ -272,8 +284,12 @@ class FloatingPanelService : Service() {
 
     companion object {
         const val EXTRA_OPACITY = "extra_hud_opacity"
+        private val _running = MutableStateFlow(false)
+        val running: kotlinx.coroutines.flow.StateFlow<Boolean> = _running
+        private val _hudOpacity = MutableStateFlow(0.70f)
 
         fun start(context: Context) {
+            if (!Settings.canDrawOverlays(context)) return
             val intent = Intent(context, FloatingPanelService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -283,16 +299,11 @@ class FloatingPanelService : Service() {
         }
 
         fun updateOpacity(context: Context, opacity: Float) {
-            val prefs = context.getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
-            prefs.edit().putFloat("hud_opacity", opacity).apply()
-            val intent = Intent(context, FloatingPanelService::class.java).apply {
-                putExtra(EXTRA_OPACITY, opacity)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            val clamped = opacity.coerceIn(0.2f, 1f)
+            context.getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
+                .edit().putFloat("hud_opacity", clamped).apply()
+            // Updating a setting never starts a service or requests overlay permission.
+            _hudOpacity.value = clamped
         }
 
         fun stop(context: Context) {

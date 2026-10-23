@@ -112,15 +112,17 @@ fun NetworkOptimizerScreen(
     var selectedCategory by remember(effectiveServers) {
         mutableStateOf(if (effectiveServers.firstOrNull()?.category == "regional") "regional" else "ultra")
     }
-    var dnsOptimizationEnabled by remember { mutableStateOf(true) }
-    var connectionBoostEnabled by remember { mutableStateOf(true) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("glassboost_storage", android.content.Context.MODE_PRIVATE) }
+    var dnsOptimizationEnabled by remember { mutableStateOf(prefs.getBoolean("dns_warmup", true)) }
+    var connectionBoostEnabled by remember { mutableStateOf(prefs.getBoolean("tcp_warmup", true)) }
     var destinationDropdownExpanded by remember { mutableStateOf(false) }
 
     val currentSelectedServer = effectiveServers.find { it.id == selectedServerId } ?: effectiveServers.firstOrNull()
 
     // Automatically trigger test on entry if not tested yet
     LaunchedEffect(selectedServerId, effectiveServers) {
-        if (currentSelectedServer != null && currentSelectedServer.currentPingMs == null && !isTestingSingle && !isTestingAll) {
+        if (currentSelectedServer != null && currentSelectedServer.lastTestedTimestamp == null && !isTestingSingle && !isTestingAll) {
             onTestSelectedServer(currentSelectedServer)
         }
     }
@@ -161,7 +163,7 @@ fun NetworkOptimizerScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isArabic) "محسن الشبكة والخوادم" else "Network & Ping Servers",
+                        text = if (isArabic) "فحص الشبكة والوجهات" else "Network endpoint diagnostics",
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Black,
                         color = PureWhite
@@ -504,12 +506,12 @@ fun NetworkOptimizerScreen(
                                     ) {
                                         Column {
                                             Text(
-                                                text = if (isArabic) "فقد الحزم" else "LOSS",
+                                                text = if (isArabic) "فشل TCP" else "TCP FAIL",
                                                 fontSize = 9.sp,
                                                 color = SlateBlueMuted
                                             )
                                             Text(
-                                                text = if (loss != null) "${loss}%" else "0%",
+                                                text = if (loss != null) "${loss}%" else "—",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (loss != null && loss > 0) PerformanceRed else PerformanceGreen
@@ -660,7 +662,7 @@ fun NetworkOptimizerScreen(
                             Text(text = "⚡", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isArabic) "خوادم Ultra (< 50ms)" else "Ultra Low (< 50ms)",
+                                text = if (isArabic) "وجهات DNS عامة" else "Public DNS endpoints",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isUltraActive) ObsidianBlack else PureWhite
@@ -824,14 +826,14 @@ fun NetworkOptimizerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = if (isArabic) "الاتصال ومسارات الشبكة" else "Connection & Routing Fastpath",
+                        text = if (isArabic) "فحص وتهيئة اتصال التطبيق" else "App connectivity diagnostics",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Black,
                         color = PureWhite
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isArabic) "تحسين استقرار الاتصال وتقليل تقلبات البنج" else "Network stability locked & socket fastpath primed",
+                        text = if (isArabic) "تهيئة اختبارات هذا التطبيق؛ لا تغيّر اتصال اللعبة" else "Warm-up for this app only; game routes are unchanged",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
@@ -857,7 +859,7 @@ fun NetworkOptimizerScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = if (isArabic) "تهيئة DNS (لا تضمن خفض Ping اللعبة)" else "DNS pre-resolution (does not guarantee lower game ping)",
+                                text = if (isArabic) "تهيئة DNS لهذا التطبيق فقط" else "Pre-resolve DNS for this app only",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PureWhite
@@ -866,7 +868,7 @@ fun NetworkOptimizerScreen(
 
                         Switch(
                             checked = dnsOptimizationEnabled,
-                            onCheckedChange = { dnsOptimizationEnabled = it },
+                            onCheckedChange = { dnsOptimizationEnabled = it; prefs.edit().putBoolean("dns_warmup", it).apply() },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = NeonCyan,
                                 checkedTrackColor = DeepGlassNavy,
@@ -897,7 +899,7 @@ fun NetworkOptimizerScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = if (isArabic) "تنشيط تسريع TCP No-Delay" else "TCP Low-Delay Socket",
+                                text = if (isArabic) "فتح اتصال TCP تجريبي" else "Open a test TCP connection",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PureWhite
@@ -906,7 +908,7 @@ fun NetworkOptimizerScreen(
 
                         Switch(
                             checked = connectionBoostEnabled,
-                            onCheckedChange = { connectionBoostEnabled = it },
+                            onCheckedChange = { connectionBoostEnabled = it; prefs.edit().putBoolean("tcp_warmup", it).apply() },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = NeonCyan,
                                 checkedTrackColor = DeepGlassNavy,
@@ -938,7 +940,7 @@ fun NetworkOptimizerScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isArabic) "جاري ضبط المسارات..." else "Optimizing routes...",
+                                    text = if (isArabic) "جاري تهيئة اتصال التطبيق..." else "Warming this app connection...",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = NeonCyan
@@ -954,7 +956,7 @@ fun NetworkOptimizerScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isArabic) "تفعيل تحسين الشبكة الآن" else "Activate Network Boost",
+                                    text = if (isArabic) "تنفيذ خيارات التهيئة المحددة" else "Run selected connection warm-ups",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = PureWhite
@@ -964,6 +966,26 @@ fun NetworkOptimizerScreen(
                     }
                 }
             }
+        }
+
+        item {
+            val best = effectiveServers.filter { !it.isFailed && it.currentPingMs != null }.minByOrNull { it.currentPingMs!! }
+            androidx.compose.material3.OutlinedButton(
+                enabled = best != null,
+                onClick = { best?.let { onSelectServer(it.id) } }
+            ) { Text(if (isArabic) "اختيار أسرع وجهة اختبار مقاسة" else "Select fastest measured test endpoint") }
+            Text(
+                if (isArabic) "الاختيار يحدد وجهة القياس فقط ولا يربط اللعبة بهذا الخادم. DNS وتغييرات الشبكة تتم من إعدادات الهاتف."
+                else "Selection changes only the benchmark target, not game routing. Configure system DNS in phone settings.",
+                color = TextSecondary, fontSize = 11.sp
+            )
+            androidx.compose.material3.TextButton(onClick = {
+                val privateDns = android.content.Intent("android.settings.PRIVATE_DNS_SETTINGS")
+                try { context.startActivity(privateDns) }
+                catch (_: android.content.ActivityNotFoundException) {
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
+                }
+            }) { Text(if (isArabic) "فتح إعدادات DNS والشبكة" else "Open DNS and network settings") }
         }
 
         // Section 6: Policy & Honest Transparency Disclaimer (Rule 8)

@@ -430,141 +430,27 @@ fun SearchBarGlass(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoostSuccessDialog(
+    result: com.example.data.model.BoostResult,
     onDismiss: () -> Unit,
     isArabic: Boolean = true
 ) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .width(320.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(DeepVoidBlack, DeepGlassNavy)
-                    )
-                )
-                .border(
-                    1.dp,
-                    Brush.linearGradient(
-                        listOf(NeonCyan, Color.White.copy(alpha = 0.2f), RoyalGold)
-                    ),
-                    RoundedCornerShape(26.dp)
-                )
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Glowing Checkmark Circle
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(NeonCyan.copy(alpha = 0.35f), Color.Transparent)
-                            )
-                        )
-                        .border(2.dp, NeonCyan, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Success",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Text(
-                    text = if (isArabic) "تم التحسين بنجاح" else "Optimization Complete",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    color = PureWhite
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isArabic) "تم تطبيق جميع الإعدادات بنجاح" else "All performance tweaks applied smoothly",
-                    fontSize = 12.sp,
-                    color = SlateBlueMuted,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // 2 Stat Tiles: +45% أداء أعلى & +38% استقرار الشبكة
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(CardGlassSurface)
-                            .border(1.dp, CardGlassBorder, RoundedCornerShape(14.dp))
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (isArabic) "أداء أعلى" else "Higher Perf",
-                                fontSize = 11.sp,
-                                color = SlateBlueMuted
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "+45%",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeonCyan
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(CardGlassSurface)
-                            .border(1.dp, CardGlassBorder, RoundedCornerShape(14.dp))
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (isArabic) "استقرار الشبكة" else "Network Stability",
-                                fontSize = 11.sp,
-                                color = SlateBlueMuted
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "+38%",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = ElectricBlue
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(22.dp))
-
-                // "حسنًا" Action Button
-                GlassBoostPrimaryButton(
-                    text = if (isArabic) "حسنًا" else "Got It",
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
-                )
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isArabic) "نتيجة التحضير المقاسة" else "Measured preparation result") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(if (isArabic) "كاش GlassBoost المحذوف: ${result.cacheDeletedBytes} بايت" else "GlassBoost cache deleted: ${result.cacheDeletedBytes} bytes")
+                Text(if (isArabic) "زيادة RAM المتاح المرصودة: ${result.ramFreedMb} MB" else "Observed available RAM increase: ${result.ramFreedMb} MB")
+                Text(if (isArabic) "تعذر حذف: ${result.cleanupFailures}" else "Failed deletions: ${result.cleanupFailures}")
+                val before = if (result.initialPingMs >= 0) "${result.initialPingMs}ms" else "—"
+                val after = if (result.optimizedPingMs >= 0) "${result.optimizedPingMs}ms" else "—"
+                Text(if (isArabic) "اتصال TCP إلى Cloudflare قبل/بعد: $before / $after" else "Cloudflare TCP before/after: $before / $after")
+                Text(if (isArabic) "هذه قياسات للنظام واتصال اختبار. لا تثبت تسريع اللعبة أو إنهاء تطبيقات، وقد تكون النتيجة صفرًا أو يسوء زمن الاتصال."
+                    else "These are system and test-connection measurements, not proof of game acceleration or app termination. Cleanup can be zero and connection time can worsen.")
             }
-        }
-    }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(if (isArabic) "إغلاق" else "Close") } }
+    )
 }
 
 /**
@@ -702,59 +588,32 @@ fun InteractivePerformanceChart(
                     fillColor: Color
                 ) {
                     val range = max(1f, maxVal - minVal)
-                    val points = values.mapIndexed { index, v ->
-                        val norm = ((v - minVal) / range).coerceIn(0f, 1f)
-                        val x = index * stepX
-                        val y = canvasHeight - (norm * canvasHeight)
-                        Offset(x, y)
-                    }
-
                     val path = Path()
-                    val fillPath = Path()
-
-                    path.moveTo(points.first().x, points.first().y)
-                    fillPath.moveTo(points.first().x, canvasHeight)
-                    fillPath.lineTo(points.first().x, points.first().y)
-
-                    for (i in 0 until points.size - 1) {
-                        val p1 = points[i]
-                        val p2 = points[i + 1]
-                        val controlX = (p1.x + p2.x) / 2
-                        path.cubicTo(controlX, p1.y, controlX, p2.y, p2.x, p2.y)
-                        fillPath.cubicTo(controlX, p1.y, controlX, p2.y, p2.x, p2.y)
+                    var connected = false
+                    values.forEachIndexed { index, value ->
+                        if (value < 0f) {
+                            connected = false
+                        } else {
+                            val x = index * stepX
+                            val y = canvasHeight * (1f - ((value - minVal) / range).coerceIn(0f, 1f))
+                            if (connected) path.lineTo(x, y) else path.moveTo(x, y)
+                            connected = true
+                        }
                     }
-
-                    fillPath.lineTo(points.last().x, canvasHeight)
-                    fillPath.close()
-
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                fillColor.copy(alpha = 0.35f),
-                                fillColor.copy(alpha = 0.02f)
-                            )
-                        )
-                    )
-
-                    drawPath(
-                        path = path,
-                        color = lineColor,
-                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
-                    )
+                    drawPath(path, lineColor, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
                 }
 
                 when (selectedMetric) {
                     "FPS" -> {
                         val fpsValues = snapshots.map { it.fps.toFloat() }
-                        val minF = (fpsValues.minOrNull() ?: 30f) - 5f
-                        val maxF = (fpsValues.maxOrNull() ?: 90f) + 5f
+                        val minF = (fpsValues.filter { it >= 0 }.minOrNull() ?: 30f) - 5f
+                        val maxF = (fpsValues.filter { it >= 0 }.maxOrNull() ?: 90f) + 5f
                         drawCurve(fpsValues, maxF, minF, PerformanceGreen, PerformanceGreen)
                     }
                     "PING" -> {
                         val pingValues = snapshots.map { it.pingMs.toFloat() }
-                        val minP = max(0f, (pingValues.minOrNull() ?: 15f) - 5f)
-                        val maxP = (pingValues.maxOrNull() ?: 80f) + 10f
+                        val minP = max(0f, (pingValues.filter { it >= 0 }.minOrNull() ?: 15f) - 5f)
+                        val maxP = (pingValues.filter { it >= 0 }.maxOrNull() ?: 80f) + 10f
                         drawCurve(pingValues, maxP, minP, GlassBlue, GlassBlue)
                     }
                     "CPU" -> {

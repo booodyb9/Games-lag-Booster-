@@ -99,6 +99,7 @@ fun DashboardScreen(
     isOptimizing: Boolean,
     optimizationStep: String,
     lastBoostResult: BoostResult?,
+    showResultSummary: Boolean = true,
     games: List<GameItem>,
     isFloatingHudActive: Boolean,
     hudOpacity: Float = 0.70f,
@@ -292,7 +293,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isArabic) "جاري التسريع..." else "Boosting...",
+                                text = if (isArabic) "جاري التحضير..." else "Boosting...",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Black,
                                 color = ObsidianBlack
@@ -308,7 +309,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isArabic) "⚡ تسريع توربو" else "⚡ Boost",
+                                text = if (isArabic) "⚡ تحضير وقياس" else "⚡ Prepare",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Black,
                                 color = ObsidianBlack
@@ -373,7 +374,7 @@ fun DashboardScreen(
                 icon = Icons.Default.Wifi,
                 label = if (isArabic) "الشبكة والخوادم" else "Network & Ping",
                 mainValue = if (currentMetrics.pingMs >= 0) "${currentMetrics.pingMs}ms" else "—",
-                subtitle = if (isArabic) "زمن اتصال TCP ➔" else "TCP connect time ➔",
+                subtitle = if (isArabic) "اتصال Cloudflare TCP ➔" else "Cloudflare TCP connect ➔",
                 isPositive = currentMetrics.pingMs in 0..49
             )
 
@@ -382,9 +383,9 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.BatteryChargingFull,
                 label = if (isArabic) "البطارية" else "Battery",
-                mainValue = "72%",
-                subtitle = if (isArabic) "ممتازة" else "Optimal",
-                isPositive = true
+                mainValue = if (currentMetrics.batteryLevelPercent >= 0) "${currentMetrics.batteryLevelPercent}%" else "—",
+                subtitle = if (isArabic) "قراءة Android" else "Reported by Android",
+                isPositive = currentMetrics.batteryLevelPercent >= 20
             )
         }
 
@@ -694,8 +695,9 @@ fun DashboardScreen(
     }
 
     // Boost Success Modal (Faithful implementation of Screen 11 in design preview)
-    if (showSuccessModal && lastBoostResult != null) {
+    if (showResultSummary && showSuccessModal && lastBoostResult != null) {
         BoostSuccessDialog(
+            result = lastBoostResult,
             onDismiss = { showSuccessModal = false },
             isArabic = isArabic
         )
