@@ -374,7 +374,7 @@ fun DashboardScreen(
                 icon = Icons.Default.Wifi,
                 label = if (isArabic) "الشبكة والخوادم" else "Network & Ping",
                 mainValue = if (currentMetrics.pingMs >= 0) "${currentMetrics.pingMs}ms" else "—",
-                subtitle = if (isArabic) "زمن اتصال TCP ➔" else "TCP connect time ➔",
+                subtitle = if (isArabic) "اتصال Cloudflare TCP ➔" else "Cloudflare TCP connect ➔",
                 isPositive = currentMetrics.pingMs in 0..49
             )
 
@@ -383,9 +383,9 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.BatteryChargingFull,
                 label = if (isArabic) "البطارية" else "Battery",
-                mainValue = "72%",
-                subtitle = if (isArabic) "ممتازة" else "Optimal",
-                isPositive = true
+                mainValue = if (currentMetrics.batteryLevelPercent >= 0) "${currentMetrics.batteryLevelPercent}%" else "—",
+                subtitle = if (isArabic) "قراءة Android" else "Reported by Android",
+                isPositive = currentMetrics.batteryLevelPercent >= 20
             )
         }
 

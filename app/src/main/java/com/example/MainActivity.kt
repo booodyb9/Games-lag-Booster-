@@ -717,9 +717,9 @@ fun MainAppRoot(
                                         if (preparationOptions.autoPrepare && game.isTurboEnabled) {
                                             autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                         }
-                                        if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         if (onLaunchGameIntent(game)) {
                                             sessionStorage.startRecording(game.appName, game.packageName)
+                                            if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         }
                                     }
                                 },
@@ -743,9 +743,9 @@ fun MainAppRoot(
                                         if (preparationOptions.autoPrepare && game.isTurboEnabled) {
                                             autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                         }
-                                        if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         if (onLaunchGameIntent(game)) {
                                             sessionStorage.startRecording(game.appName, game.packageName)
+                                            if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
                                         }
                                     }
                                 },
@@ -1069,13 +1069,13 @@ fun AboutGlassBoostDialog(
                     text = if (isArabic)
                         "GlassBoost لتحضير جلسة اللعب وتنظيف كاش التطبيق وقياس RAM والحرارة واتصال TCP، مع شاشة عائمة اختيارية."
                     else
-                        "GlassBoost delivers esports-grade performance optimization, real socket ping tuning, live FPS & thermal HUD, and hardware unleash.",
+                        "GlassBoost prepares game sessions, cleans its own cache, and measures system RAM, battery temperature and public TCP connectivity, with an optional overlay.",
                     fontSize = 13.sp,
                     color = SlateBlueMuted
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Version 3.4 • Hybrid iOS Glassmorphic Design",
+                    text = "Version ${com.example.BuildConfig.VERSION_NAME}",
                     fontSize = 11.sp,
                     color = NeonCyan,
                     fontWeight = FontWeight.Bold

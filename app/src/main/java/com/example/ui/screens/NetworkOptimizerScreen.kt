@@ -662,7 +662,7 @@ fun NetworkOptimizerScreen(
                             Text(text = "⚡", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isArabic) "خوادم Ultra (< 50ms)" else "Ultra Low (< 50ms)",
+                                text = if (isArabic) "وجهات DNS عامة" else "Public DNS endpoints",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isUltraActive) ObsidianBlack else PureWhite

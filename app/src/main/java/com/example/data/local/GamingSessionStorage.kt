@@ -304,6 +304,7 @@ class GamingSessionStorage(private val context: Context) {
                         put("totalRam", s.ramTotalMb)
                         put("temp", s.batteryTemp.toDouble())
                         put("thermal", s.thermalState)
+                        put("battery", s.batteryLevelPercent)
                     }
                     snapArr.put(sObj)
                 }
@@ -335,12 +336,15 @@ class GamingSessionStorage(private val context: Context) {
                             ramUsedMb = s.optLong("ram", 0),
                             ramTotalMb = s.optLong("totalRam", 0),
                             batteryTemp = s.optDouble("temp", -1.0).toFloat(),
-                            thermalState = s.optString("thermal", "Normal")
+                            thermalState = s.optString("thermal", "Unknown"),
+                            batteryLevelPercent = s.optInt("battery", -1)
                         )
                     )
                 }
             }
 
+            fun legacyAverage(values: List<Int>): Float =
+                values.filter { it >= 0 }.takeIf { it.isNotEmpty() }?.average()?.toFloat() ?: -1f
             list.add(
                 GamingSession(
                     id = obj.getString("id"),
@@ -352,10 +356,10 @@ class GamingSessionStorage(private val context: Context) {
                     averageFps = if (currentMeasurements) obj.getDouble("averageFps").toFloat() else -1f,
                     minFps = if (currentMeasurements) obj.getInt("minFps") else -1,
                     maxFps = if (currentMeasurements) obj.getInt("maxFps") else -1,
-                    averagePing = obj.getInt("averagePing"),
-                    maxPing = obj.getInt("maxPing"),
-                    averageCpu = obj.getDouble("averageCpu").toFloat(),
-                    averageGpu = obj.getDouble("averageGpu").toFloat(),
+                    averagePing = if (currentMeasurements) obj.getInt("averagePing") else legacyAverage(snaps.map { it.pingMs }).toInt(),
+                    maxPing = if (currentMeasurements) obj.getInt("maxPing") else snaps.map { it.pingMs }.filter { it >= 0 }.maxOrNull() ?: -1,
+                    averageCpu = if (currentMeasurements) obj.getDouble("averageCpu").toFloat() else legacyAverage(snaps.map { it.cpuUsagePercent }),
+                    averageGpu = if (currentMeasurements) obj.getDouble("averageGpu").toFloat() else legacyAverage(snaps.map { it.gpuUsagePercent }),
                     ramFreedMb = if (currentMeasurements) obj.optLong("ramFreedMb", 0) else 0L,
                     stabilityScore = if (currentMeasurements) obj.optInt("stabilityScore", -1) else -1,
                     snapshots = snaps

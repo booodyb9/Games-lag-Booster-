@@ -64,4 +64,31 @@ class GamingSessionStorageTest {
         storage.sessions.value.toList().forEach { storage.deleteSession(it.id) }
         assertTrue(GamingSessionStorage(context).sessions.value.isEmpty())
     }
+
+    @Test fun legacyAggregatesAreRecomputedFromValidSamples() {
+        val storage = GamingSessionStorage(context)
+        storage.startRecording("Legacy", "test.legacy")
+        storage.appendSnapshot(sample(-1, -1))
+        storage.appendSnapshot(sample(-1, 50, 20, 40))
+        storage.stopRecording()
+        val prefs = context.getSharedPreferences("glassboost_storage", Context.MODE_PRIVATE)
+        val json = org.json.JSONArray(prefs.getString("saved_sessions", "[]"))
+        json.getJSONObject(0).apply {
+            remove("measurementVersion")
+            put("averagePing", 24)
+            put("averageCpu", 9.0)
+            put("averageGpu", 19.0)
+            put("averageFps", 89.0)
+            put("ramFreedMb", 512)
+            put("stabilityScore", 98)
+        }
+        prefs.edit().putString("saved_sessions", json.toString()).commit()
+        val loaded = GamingSessionStorage(context).sessions.value.first()
+        assertEquals(50, loaded.averagePing)
+        assertEquals(20f, loaded.averageCpu, 0f)
+        assertEquals(40f, loaded.averageGpu, 0f)
+        assertEquals(-1f, loaded.averageFps, 0f)
+        assertEquals(0L, loaded.ramFreedMb)
+        assertEquals(-1, loaded.stabilityScore)
+    }
 }

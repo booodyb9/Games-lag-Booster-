@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Android Foreground Service hosting a pure Jetpack Compose Floating Gaming HUD
- * with real-time FPS, Ping, thermal overheat monitoring, and customizable opacity.
+ * with system memory, public TCP timings, battery temperature, and customizable opacity.
  */
 class FloatingPanelService : Service() {
 
@@ -96,7 +96,7 @@ class FloatingPanelService : Service() {
                 "GlassBoost Floating HUD",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Real-time Compose FPS, Ping, and Memory HUD over games"
+                description = "Optional system RAM, TCP timing and battery temperature overlay"
                 setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
@@ -114,7 +114,7 @@ class FloatingPanelService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("GlassBoost • Compose Floating HUD")
-            .setContentText("Active FPS, Ping & Thermal monitor running over games")
+            .setContentText("System RAM, TCP timing & battery temperature monitor active")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

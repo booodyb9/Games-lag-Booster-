@@ -75,7 +75,11 @@ class PerformanceMonitorEngine(private val context: Context) {
                     ramUsedMb = usedRam,
                     ramTotalMb = totalRam,
                     batteryTemp = temp,
-                    thermalState = thermal
+                    thermalState = thermal,
+                    batteryLevelPercent = try {
+                        (context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager)
+                            .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 } ?: -1
+                    } catch (_: Exception) { -1 }
                 )
 
                 _currentMetrics.value = snapshot
