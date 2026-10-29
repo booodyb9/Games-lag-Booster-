@@ -8,14 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build Type (debug / release)'
+        description: 'Debug APK (release signing is managed separately)'
         required: true
         default: 'debug'
         type: choice
         options:
           - debug
-          - release
-          - both
 
 permissions:
   contents: read
@@ -65,19 +63,28 @@ jobs:
 
       - name: Run Unit Tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
-        continue-on-error: true
 
       - name: Prepare APKs for Download
-        if: always()
+        if: success()
         run: |
           mkdir -p build-artifacts
           find app/build/outputs/apk/ -name "*.apk" -type f -exec cp {} build-artifacts/ \;
           ls -la build-artifacts/
 
       - name: Upload APK Artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: GlassBoost-GameBooster-APK
+          if-no-files-found: error
           path: build-artifacts/*.apk
           retention-days: 90
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports-${{ github.workflow }}
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7

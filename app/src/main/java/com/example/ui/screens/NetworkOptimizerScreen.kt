@@ -98,29 +98,24 @@ fun NetworkOptimizerScreen(
     selectedServerId: String = "ultra_google_core",
     isTestingAll: Boolean = false,
     isTestingSingle: Boolean = false,
-    isOptimizingNetwork: Boolean = false,
-    networkOptimizationDone: Boolean = false,
-    overallJitterMs: Int = 2,
     isArabic: Boolean = true,
     onSelectServer: (String) -> Unit = {},
     onSelectCategory: (String) -> Unit = {},
     onTestSelectedServer: (PingServerTarget) -> Unit = {},
-    onTestAllServers: () -> Unit = {},
-    onOptimizeNetworkRouting: () -> Unit = {}
+    onTestAllServers: () -> Unit = {}
 ) {
     val effectiveServers = if (servers.isEmpty()) DEFAULT_PING_SERVERS else servers
     var selectedCategory by remember(effectiveServers) {
         mutableStateOf(if (effectiveServers.firstOrNull()?.category == "regional") "regional" else "ultra")
     }
-    var dnsOptimizationEnabled by remember { mutableStateOf(true) }
-    var connectionBoostEnabled by remember { mutableStateOf(true) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     var destinationDropdownExpanded by remember { mutableStateOf(false) }
 
     val currentSelectedServer = effectiveServers.find { it.id == selectedServerId } ?: effectiveServers.firstOrNull()
 
     // Automatically trigger test on entry if not tested yet
     LaunchedEffect(selectedServerId, effectiveServers) {
-        if (currentSelectedServer != null && currentSelectedServer.currentPingMs == null && !isTestingSingle && !isTestingAll) {
+        if (currentSelectedServer != null && currentSelectedServer.lastTestedTimestamp == null && !isTestingSingle && !isTestingAll) {
             onTestSelectedServer(currentSelectedServer)
         }
     }
@@ -161,7 +156,7 @@ fun NetworkOptimizerScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isArabic) "محسن الشبكة والخوادم" else "Network & Ping Servers",
+                        text = if (isArabic) "فحص الشبكة والوجهات" else "Network endpoint diagnostics",
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Black,
                         color = PureWhite
@@ -504,12 +499,12 @@ fun NetworkOptimizerScreen(
                                     ) {
                                         Column {
                                             Text(
-                                                text = if (isArabic) "فقد الحزم" else "LOSS",
+                                                text = if (isArabic) "فشل TCP" else "TCP FAIL",
                                                 fontSize = 9.sp,
                                                 color = SlateBlueMuted
                                             )
                                             Text(
-                                                text = if (loss != null) "${loss}%" else "0%",
+                                                text = if (loss != null) "${loss}%" else "—",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (loss != null && loss > 0) PerformanceRed else PerformanceGreen
@@ -660,7 +655,7 @@ fun NetworkOptimizerScreen(
                             Text(text = "⚡", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isArabic) "خوادم Ultra (< 50ms)" else "Ultra Low (< 50ms)",
+                                text = if (isArabic) "وجهات DNS عامة" else "Public DNS endpoints",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isUltraActive) ObsidianBlack else PureWhite
@@ -813,157 +808,42 @@ fun NetworkOptimizerScreen(
             }
         }
 
-        // Section 5: System Network Optimization Controls (DNS, Fastpath, Boost)
         item {
-            GlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                borderColor = if (networkOptimizationDone) PerformanceGreen else NeonCyan.copy(alpha = 0.5f)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), borderColor = NeonCyan.copy(alpha = 0.5f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(if (isArabic) "فحص الاتصال الفعلي" else "Live connection diagnostics", color = PureWhite)
                     Text(
-                        text = if (isArabic) "الاتصال ومسارات الشبكة" else "Connection & Routing Fastpath",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Black,
-                        color = PureWhite
+                        if (isArabic) "الوجهة المختارة تُستخدم أيضًا في لوحة المتابعة والنافذة العائمة. بعض الشبكات تمنع TCP على المنفذ 53؛ جرّب وجهة HTTPS على 443 عند فشل الاتصال."
+                        else "The selected destination is also used by the dashboard and HUD. Some networks block TCP port 53; test an HTTPS destination on port 443 if needed.",
+                        color = TextSecondary, fontSize = 12.sp
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (isArabic) "تحسين استقرار الاتصال وتقليل تقلبات البنج" else "Network stability locked & socket fastpath primed",
-                        fontSize = 11.sp,
-                        color = SlateBlueMuted
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Toggle 1: تحسين DNS
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.Black.copy(alpha = 0.35f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Dns,
-                                contentDescription = "DNS",
-                                tint = NeonCyan,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isArabic) "تهيئة DNS (لا تضمن خفض Ping اللعبة)" else "DNS pre-resolution (does not guarantee lower game ping)",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PureWhite
-                            )
-                        }
-
-                        Switch(
-                            checked = dnsOptimizationEnabled,
-                            onCheckedChange = { dnsOptimizationEnabled = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = NeonCyan,
-                                checkedTrackColor = DeepGlassNavy,
-                                uncheckedThumbColor = SlateBlueMuted,
-                                uncheckedTrackColor = DarkSlate
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Toggle 2: تسريع الاتصال
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.Black.copy(alpha = 0.35f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = "Speed",
-                                tint = NeonCyan,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isArabic) "تنشيط تسريع TCP No-Delay" else "TCP Low-Delay Socket",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PureWhite
-                            )
-                        }
-
-                        Switch(
-                            checked = connectionBoostEnabled,
-                            onCheckedChange = { connectionBoostEnabled = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = NeonCyan,
-                                checkedTrackColor = DeepGlassNavy,
-                                uncheckedThumbColor = SlateBlueMuted,
-                                uncheckedTrackColor = DarkSlate
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Optimize Action Button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(CardGlassSurface)
-                            .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .clickable(enabled = !isOptimizingNetwork, onClick = onOptimizeNetworkRouting),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isOptimizingNetwork) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = NeonCyan,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isArabic) "جاري ضبط المسارات..." else "Optimizing routes...",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeonCyan
-                                )
-                            }
-                        } else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Bolt,
-                                    contentDescription = "Optimize",
-                                    tint = NeonCyan,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isArabic) "تفعيل تحسين الشبكة الآن" else "Activate Network Boost",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = PureWhite
-                                )
-                            }
-                        }
-                    }
+                    androidx.compose.material3.Button(
+                        enabled = currentSelectedServer != null && !isTestingSingle && !isTestingAll,
+                        onClick = { currentSelectedServer?.let(onTestSelectedServer) }
+                    ) { Text(if (isArabic) "إعادة فحص الوجهة المختارة" else "Retest selected destination") }
+                    androidx.compose.material3.OutlinedButton(onClick = {
+                        com.example.engine.openDeviceSettings(context,
+                            if (android.os.Build.VERSION.SDK_INT >= 29) "android.settings.panel.action.INTERNET_CONNECTIVITY"
+                            else android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                    }) { Text(if (isArabic) "إدارة Wi-Fi وبيانات الهاتف" else "Manage Wi-Fi and mobile data") }
                 }
             }
+        }
+
+        item {
+            val best = effectiveServers.filter { !it.isFailed && it.currentPingMs != null }.minByOrNull { it.currentPingMs!! }
+            androidx.compose.material3.OutlinedButton(
+                enabled = best != null,
+                onClick = { best?.let { onSelectServer(it.id) } }
+            ) { Text(if (isArabic) "اختيار أسرع وجهة اختبار مقاسة" else "Select fastest measured test endpoint") }
+            Text(
+                if (isArabic) "الاختيار يحدد وجهة القياس فقط ولا يربط اللعبة بهذا الخادم. DNS وتغييرات الشبكة تتم من إعدادات الهاتف."
+                else "Selection changes only the benchmark target, not game routing. Configure system DNS in phone settings.",
+                color = TextSecondary, fontSize = 11.sp
+            )
+            androidx.compose.material3.TextButton(onClick = {
+                com.example.engine.openDeviceSettings(context, "android.settings.PRIVATE_DNS_SETTINGS")
+            }) { Text(if (isArabic) "فتح إعدادات DNS والشبكة" else "Open DNS and network settings") }
         }
 
         // Section 6: Policy & Honest Transparency Disclaimer (Rule 8)

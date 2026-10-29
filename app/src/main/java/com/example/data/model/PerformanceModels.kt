@@ -14,7 +14,9 @@ data class PerformanceSnapshot(
     val ramUsedMb: Long,
     val ramTotalMb: Long,
     val batteryTemp: Float,
-    val thermalState: String = "Normal"
+    val thermalState: String = "Unknown",
+    val batteryLevelPercent: Int = -1,
+    val networkTarget: String = ""
 )
 
 /**
@@ -64,7 +66,12 @@ data class BoostResult(
     val initialPingMs: Int,
     val optimizedPingMs: Int,
     val networkJitterReducedMs: Int,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val cacheDeletedBytes: Long = 0L,
+    val cleanupFailures: Int = 0,
+    val availableRamBeforeMb: Long = 0L,
+    val availableRamAfterMb: Long = 0L,
+    val networkTarget: String = ""
 )
 
 /**
@@ -92,7 +99,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_google_core",
         nameAr = "اختبار اتصال Google DNS",
         nameEn = "Google DNS TCP endpoint",
-        location = "Global Anycast Gaming POP",
+        location = "Public TCP connectivity benchmark",
         host = "8.8.8.8",
         port = 53,
         iconEmoji = "🚀",
@@ -102,7 +109,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_cloudflare_1",
         nameAr = "اختبار اتصال Cloudflare DNS",
         nameEn = "Cloudflare DNS TCP endpoint",
-        location = "Direct Anycast Backbone",
+        location = "Public TCP connectivity benchmark",
         host = "1.1.1.1",
         port = 53,
         iconEmoji = "⚡",
@@ -112,7 +119,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_cloudflare_route",
         nameAr = "اختبار اتصال Cloudflare البديل",
         nameEn = "Cloudflare alternate TCP endpoint",
-        location = "Ultra-Low Latency POP",
+        location = "Public TCP connectivity benchmark",
         host = "1.0.0.1",
         port = 53,
         iconEmoji = "🌐",
@@ -122,7 +129,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_google_backup",
         nameAr = "اختبار اتصال Google DNS البديل",
         nameEn = "Google alternate TCP endpoint",
-        location = "Low-Delay Gaming Node",
+        location = "Public TCP connectivity benchmark",
         host = "8.8.4.4",
         port = 53,
         iconEmoji = "🎯",
@@ -132,7 +139,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_google_https",
         nameAr = "اختبار HTTPS إلى Google DNS",
         nameEn = "Google DNS HTTPS endpoint",
-        location = "Encrypted Gaming Gateway",
+        location = "Public TCP connectivity benchmark",
         host = "dns.google",
         port = 443,
         iconEmoji = "🔒",
@@ -142,7 +149,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_cloudflare_shield",
         nameAr = "اختبار Cloudflare DNS الآمن",
         nameEn = "Cloudflare security DNS endpoint",
-        location = "Anti-DDoS Low-Latency Node",
+        location = "Public TCP connectivity benchmark",
         host = "1.1.1.2",
         port = 53,
         iconEmoji = "🛡️",
@@ -152,7 +159,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_cloudflare_direct2",
         nameAr = "اختبار Cloudflare DNS الإضافي",
         nameEn = "Cloudflare additional TCP endpoint",
-        location = "Zero-Jitter Gaming Transit",
+        location = "Public TCP connectivity benchmark",
         host = "1.0.0.2",
         port = 53,
         iconEmoji = "🏎️",
@@ -162,7 +169,7 @@ val ULTRA_LOW_PING_SERVERS = listOf(
         id = "ultra_aws_cloudfront",
         nameAr = "اختبار اتصال موقع AWS",
         nameEn = "AWS website TCP endpoint",
-        location = "Amazon Global Edge Network",
+        location = "Public TCP connectivity benchmark",
         host = "aws.amazon.com",
         port = 443,
         iconEmoji = "☁️",
@@ -269,8 +276,8 @@ data class GameItem(
 )
 
 enum class BoosterMode(val labelAr: String, val labelEn: String, val descAr: String, val descEn: String) {
-    ULTRA("وضع التوربو الأقصى", "Ultra Turbo", "أقصى أداء مع إزالة اللاغ تماماً وتثبيت الإطارات", "Max performance, zero lag, frame stability locked"),
+    ULTRA("وضع التوربو الأقصى", "Ultra Turbo", "تحضير اللعبة وفق الخيارات المحفوظة", "Prepare using saved options"),
     BALANCED("الوضع المتوازن", "Balanced", "توازن مثالي بين الأداء واستهلاك البطارية", "Optimal balance between speed and battery efficiency"),
-    BATTERY_SAVER("توفير الطاقة للألعاب", "Battery Saver", "لعب سلس مع خفض حرارة المعالج واستهلاك الطاقة", "Smooth gameplay while reducing thermal heat and drain"),
-    ESPORTS("وضع بطولات الرياضات الإلكترونية", "Esports Tournament", "تثبيت زمن الاستجابة (Ping) مع حظر الإشعارات", "Lowest latency lock with background process freeze")
+    BATTERY_SAVER("توفير الطاقة للألعاب", "Battery Saver", "راجع إعدادات الطاقة في الهاتف", "Review phone power settings"),
+    ESPORTS("وضع بطولات الرياضات الإلكترونية", "Esports Tournament", "تقليل المقاطعات بعد إذن عدم الإزعاج", "Reduce interruptions with approved Do Not Disturb")
 }

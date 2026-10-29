@@ -68,6 +68,7 @@ fun GameLauncherScreen(
     deviceInstalledApps: List<GameItem> = emptyList(),
     isArabic: Boolean,
     onLaunchGame: (GameItem) -> Unit,
+    onSaveProfile: (GameItem) -> Unit = {},
     onAddGameFromDevice: (GameItem) -> Unit,
     onRemoveGame: (packageName: String) -> Unit = {},
     onAddCustomGame: (name: String, pkg: String) -> Unit
@@ -120,7 +121,7 @@ fun GameLauncherScreen(
                         color = PureWhite
                     )
                     Text(
-                        text = if (isArabic) "ألعابك المعززة بالأداء الفائق (${games.size})" else "Esports Boosted Games (${games.size})",
+                        text = if (isArabic) "ألعابك (${games.size})" else "Your games (${games.size})",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
@@ -268,7 +269,7 @@ fun GameLauncherScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (isArabic) "لا توجد ألعاب مضافة حالياً" else "No boosted games added yet",
+                            text = if (isArabic) "لا توجد ألعاب مضافة حالياً" else "No games added yet",
                             color = TextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -614,14 +615,14 @@ fun GameLauncherScreen(
     // Modal: GFX Tuning Dialog
     if (tuningGame != null) {
         val game = tuningGame!!
-        var targetFps by remember { mutableIntStateOf(game.targetFps) }
-        var resPreset by remember { mutableStateOf(game.resolutionPreset) }
+        var targetFps by remember(game.packageName) { mutableIntStateOf(game.targetFps) }
+        var resPreset by remember(game.packageName) { mutableStateOf(game.resolutionPreset) }
 
         AlertDialog(
             onDismissRequest = { tuningGame = null },
             title = {
                 Text(
-                    text = if (isArabic) "إعدادات الرسوميات لـ ${game.appName}" else "GFX & FPS Tuning: ${game.appName}",
+                    text = if (isArabic) "ملف تفضيلات ${game.appName}" else "Reference profile: ${game.appName}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = RoyalGold
@@ -630,7 +631,14 @@ fun GameLauncherScreen(
             text = {
                 Column {
                     Text(
-                        text = if (isArabic) "معدل الإطارات المستهدف (Target FPS):" else "Target Frame Rate Lock:",
+                        text = if (isArabic) "هذا ملف تفضيلات محفوظ. طبّق القيم من إعدادات اللعبة؛ Android لا يسمح لهذا التطبيق بفرضها على لعبة أخرى."
+                        else "Saved reference profile. Apply these values in the game's own settings; Android does not let this app force them on another game.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isArabic) "معدل الإطارات المستهدف (Target FPS):" else "Preferred FPS (reference):",
                         fontSize = 12.sp,
                         color = TextSecondary,
                         fontWeight = FontWeight.SemiBold
@@ -699,7 +707,10 @@ fun GameLauncherScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { tuningGame = null }) {
+                TextButton(onClick = {
+                    onSaveProfile(game.copy(targetFps = targetFps, resolutionPreset = resPreset))
+                    tuningGame = null
+                }) {
                     Text(
                         text = if (isArabic) "حفظ التعديلات" else "Save Settings",
                         color = RoyalGold,
@@ -1147,7 +1158,7 @@ fun GameListItemRow(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isArabic) "أداء محسّن" else "Optimized • 120 FPS",
+                        text = if (isArabic) "ملف تفضيلات محفوظ" else "Saved preference profile",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )

@@ -8,7 +8,6 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
-import android.view.Choreographer
 import com.example.data.model.PerformanceSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,28 +50,6 @@ class PerformanceMonitorEngine(private val context: Context) {
     )
     val currentMetrics: StateFlow<PerformanceSnapshot> = _currentMetrics.asStateFlow()
 
-    // Choreographer FPS tracker
-    private var frameCount = 0
-    private var lastFpsCalculationTime = System.nanoTime()
-    private var currentCalculatedFps = 60
-    private var isTrackingFps = false
-
-    private val frameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            frameCount++
-            val elapsed = frameTimeNanos - lastFpsCalculationTime
-            if (elapsed >= 1_000_000_000L) { // 1 second
-                val realFps = ((frameCount * 1_000_000_000L) / elapsed).toInt()
-                currentCalculatedFps = realFps.coerceIn(20, 144)
-                frameCount = 0
-                lastFpsCalculationTime = frameTimeNanos
-            }
-            if (isTrackingFps) {
-                Choreographer.getInstance().postFrameCallback(this)
-            }
-        }
-    }
-
     private var monitoringJob: Job? = null
     private var lastCpuTotal: Long = 0
     private var lastCpuIdle: Long = 0
@@ -80,14 +57,18 @@ class PerformanceMonitorEngine(private val context: Context) {
     fun start(scope: CoroutineScope) {
         if (monitoringJob != null && monitoringJob?.isActive == true) return
 
-        isTrackingFps = true
-        try {
-            Choreographer.getInstance().postFrameCallback(frameCallback)
-        } catch (_: Exception) {}
-
         monitoringJob = scope.launch(Dispatchers.Default) {
+            var measuredTarget = ""
+            var nextProbeAt = 0L
+            var ping = -1
             while (isActive) {
-                val ping = measureSocketPing("1.1.1.1", 53)
+                val target = selectedPingTarget(context)
+                val address = "${target.host}:${target.port}"
+                if (address != measuredTarget || SystemClock.elapsedRealtime() >= nextProbeAt) {
+                    ping = tcpConnectMillis(target.host, target.port, 800)
+                    measuredTarget = address
+                    nextProbeAt = SystemClock.elapsedRealtime() + 5000
+                }
                 val (usedRam, totalRam) = getRamInfo()
                 val cpuUsage = readCpuUsage()
                 val gpuUsage = readGpuUsagePercent()
@@ -95,15 +76,20 @@ class PerformanceMonitorEngine(private val context: Context) {
 
                 val snapshot = PerformanceSnapshot(
                     timestamp = System.currentTimeMillis(),
-                    // Choreographer measures this app's UI frames, not an external game's FPS.
-                    fps = if (currentCalculatedFps > 0) currentCalculatedFps else -1,
+                    // No public Android API exposes another app's game FPS.
+                    fps = -1,
                     pingMs = ping,
+                    networkTarget = measuredTarget,
                     cpuUsagePercent = cpuUsage,
                     gpuUsagePercent = gpuUsage,
                     ramUsedMb = usedRam,
                     ramTotalMb = totalRam,
                     batteryTemp = temp,
-                    thermalState = thermal
+                    thermalState = thermal,
+                    batteryLevelPercent = try {
+                        (context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager)
+                            .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 } ?: -1
+                    } catch (_: Exception) { -1 }
                 )
 
                 _currentMetrics.value = snapshot
@@ -113,10 +99,6 @@ class PerformanceMonitorEngine(private val context: Context) {
     }
 
     fun stop() {
-        isTrackingFps = false
-        try {
-            Choreographer.getInstance().removeFrameCallback(frameCallback)
-        } catch (_: Exception) {}
         monitoringJob?.cancel()
         monitoringJob = null
     }
@@ -128,19 +110,6 @@ class PerformanceMonitorEngine(private val context: Context) {
         val availMb = memoryInfo.availMem / (1024 * 1024)
         val usedMb = max(0L, totalMb - availMb)
         return Pair(usedMb, totalMb)
-    }
-
-    private suspend fun measureSocketPing(host: String, port: Int): Int = withContext(Dispatchers.IO) {
-        val startTime = SystemClock.elapsedRealtime()
-        try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), 800)
-                val latency = (SystemClock.elapsedRealtime() - startTime).toInt()
-                latency
-            }
-        } catch (_: Exception) {
-            -1 // Unreachable/blocked is unavailable, never fabricate a ping.
-        }
     }
 
     private fun readCpuUsage(): Int {
@@ -213,7 +182,9 @@ class PerformanceMonitorEngine(private val context: Context) {
                 PowerManager.THERMAL_STATUS_MODERATE -> "Warm (دافئ)"
                 PowerManager.THERMAL_STATUS_SEVERE -> "Throttling (ساخن)"
                 PowerManager.THERMAL_STATUS_CRITICAL -> "Critical (حرج)"
-                else -> "Optimal (مثالي)"
+                PowerManager.THERMAL_STATUS_EMERGENCY -> "Emergency (طوارئ)"
+                PowerManager.THERMAL_STATUS_SHUTDOWN -> "Shutdown imminent (إيقاف وشيك)"
+                else -> "Unknown (غير متاح)"
             }
         } else {
             when {

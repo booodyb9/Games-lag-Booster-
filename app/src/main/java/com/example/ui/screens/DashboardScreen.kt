@@ -99,6 +99,7 @@ fun DashboardScreen(
     isOptimizing: Boolean,
     optimizationStep: String,
     lastBoostResult: BoostResult?,
+    showResultSummary: Boolean = true,
     games: List<GameItem>,
     isFloatingHudActive: Boolean,
     hudOpacity: Float = 0.70f,
@@ -257,7 +258,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (isArabic) "تحسين الأداء" else "Performance Boost",
+                            text = if (isArabic) "فحص الجهاز وتحضير اللعب" else "Device checks and preparation",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = SlateBlueMuted
@@ -292,7 +293,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isArabic) "جاري التسريع..." else "Boosting...",
+                                text = if (isArabic) "جاري التحضير..." else "Preparing...",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Black,
                                 color = ObsidianBlack
@@ -308,7 +309,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isArabic) "⚡ تسريع توربو" else "⚡ Boost",
+                                text = if (isArabic) "⚡ تحضير وقياس" else "⚡ Prepare",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Black,
                                 color = ObsidianBlack
@@ -373,7 +374,7 @@ fun DashboardScreen(
                 icon = Icons.Default.Wifi,
                 label = if (isArabic) "الشبكة والخوادم" else "Network & Ping",
                 mainValue = if (currentMetrics.pingMs >= 0) "${currentMetrics.pingMs}ms" else "—",
-                subtitle = if (isArabic) "زمن اتصال TCP ➔" else "TCP connect time ➔",
+                subtitle = "TCP ${currentMetrics.networkTarget.ifEmpty { "—" }} ➔",
                 isPositive = currentMetrics.pingMs in 0..49
             )
 
@@ -382,9 +383,9 @@ fun DashboardScreen(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.BatteryChargingFull,
                 label = if (isArabic) "البطارية" else "Battery",
-                mainValue = "72%",
-                subtitle = if (isArabic) "ممتازة" else "Optimal",
-                isPositive = true
+                mainValue = if (currentMetrics.batteryLevelPercent >= 0) "${currentMetrics.batteryLevelPercent}%" else "—",
+                subtitle = if (isArabic) "قراءة Android" else "Reported by Android",
+                isPositive = currentMetrics.batteryLevelPercent >= 20
             )
         }
 
@@ -413,7 +414,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isArabic) "خوادم الألعاب واختبار Ping (8 مواقع)" else "Gaming Servers & Ping (8 Nodes)",
+                            text = if (isArabic) "وجهات فحص اتصال TCP" else "TCP test destinations",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = PureWhite
@@ -522,7 +523,7 @@ fun DashboardScreen(
                                 color = PureWhite
                             )
                             Text(
-                                text = if (isArabic) "عرض الـ FPS والبنج والتحكم أثناء اللعب" else "Live FPS & Ping overlay during gameplay",
+                                text = if (isArabic) "عرض RAM وحرارة البطارية وزمن TCP أثناء اللعب" else "System RAM, battery temperature and TCP timing overlay",
                                 fontSize = 11.sp,
                                 color = SlateBlueMuted
                             )
@@ -694,8 +695,9 @@ fun DashboardScreen(
     }
 
     // Boost Success Modal (Faithful implementation of Screen 11 in design preview)
-    if (showSuccessModal && lastBoostResult != null) {
+    if (showResultSummary && showSuccessModal && lastBoostResult != null) {
         BoostSuccessDialog(
+            result = lastBoostResult,
             onDismiss = { showSuccessModal = false },
             isArabic = isArabic
         )

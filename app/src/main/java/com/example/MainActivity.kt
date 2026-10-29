@@ -128,15 +128,26 @@ class MainActivity : ComponentActivity() {
     private lateinit var autoBoostEngine: AutoBoostEngine
     private lateinit var sessionStorage: GamingSessionStorage
 
-    private var isFloatingHudRunning by mutableStateOf(false)
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (Settings.canDrawOverlays(this)) {
+            startHudWithNotificationPermission()
+        }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { FloatingPanelService.start(this) }
+
+    private fun startHudWithNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
             FloatingPanelService.start(this)
-            isFloatingHudRunning = true
-            Toast.makeText(this, "تم تفعيل الشاشة العائمة بنجاح", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -150,6 +161,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
+                val isFloatingHudRunning by FloatingPanelService.running.collectAsState()
                 MainAppRoot(
                     monitorEngine = monitorEngine,
                     autoBoostEngine = autoBoostEngine,
@@ -158,8 +170,7 @@ class MainActivity : ComponentActivity() {
                     onToggleFloatingHud = { enable ->
                         if (enable) {
                             if (Settings.canDrawOverlays(this)) {
-                                FloatingPanelService.start(this)
-                                isFloatingHudRunning = true
+                                startHudWithNotificationPermission()
                             } else {
                                 val intent = Intent(
                                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -169,27 +180,21 @@ class MainActivity : ComponentActivity() {
                             }
                         } else {
                             FloatingPanelService.stop(this)
-                            isFloatingHudRunning = false
                         }
                     },
                     onLaunchGameIntent = { game ->
                         try {
                             val launchIntent = packageManager.getLaunchIntentForPackage(game.packageName)
-                            if (launchIntent != null) {
-                                startActivity(launchIntent)
+                            if (launchIntent == null) {
+                                Toast.makeText(this, "اللعبة غير مثبتة أو غير قابلة للتشغيل", Toast.LENGTH_LONG).show()
+                                false
                             } else {
-                                Toast.makeText(
-                                    this,
-                                    "تم تشغيل وضع التوربو لـ ${game.appName}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                startActivity(launchIntent)
+                                true
                             }
                         } catch (_: Exception) {
-                            Toast.makeText(
-                                this,
-                                "تم تشغيل وضع التوربو لـ ${game.appName}",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(this, "تعذر تشغيل اللعبة", Toast.LENGTH_LONG).show()
+                            false
                         }
                     }
                 )
@@ -197,12 +202,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (Settings.canDrawOverlays(this) && isFloatingHudRunning) {
-            // Keep state synced
-        }
-    }
+
 }
 
 @Composable
@@ -212,11 +212,28 @@ fun MainAppRoot(
     sessionStorage: GamingSessionStorage,
     isFloatingHudRunning: Boolean,
     onToggleFloatingHud: (Boolean) -> Unit,
-    onLaunchGameIntent: (GameItem) -> Unit
+    onLaunchGameIntent: (GameItem) -> Boolean
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("glassboost_storage", android.content.Context.MODE_PRIVATE) }
     var hudOpacity by remember { mutableStateOf(sharedPrefs.getFloat("hud_opacity", 0.70f)) }
+    val preferences = remember { com.example.data.local.PreparationPreferences(context) }
+    var preparationOptions by remember { mutableStateOf(preferences.read()) }
+    val gameModeController = remember { com.example.engine.GameModeController(context) }
+    var gameModeActive by remember { mutableStateOf(gameModeController.isActive) }
+    fun openDndSettings() {
+        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+    }
+    fun setGameMode(enabled: Boolean) {
+        if (!gameModeController.hasAccess) {
+            openDndSettings()
+            return
+        }
+        if (!gameModeController.setEnabled(enabled)) {
+            Toast.makeText(context, "تعذر تغيير وضع عدم الإزعاج", Toast.LENGTH_SHORT).show()
+        }
+        gameModeActive = gameModeController.isActive
+    }
     val coroutineScope = rememberCoroutineScope()
     var currentTab by remember { mutableStateOf(ScreenTab.DASHBOARD) }
     var isArabic by remember { mutableStateOf(true) }
@@ -226,6 +243,17 @@ fun MainAppRoot(
     LaunchedEffect(Unit) {
         delay(1400)
         showSplashScreen = false
+    }
+
+    DisposableEffect(gameModeController) {
+        val owner = context as MainActivity
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                gameModeActive = gameModeController.isActive
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
     }
 
     // Tools sub-tab (0: Process Cleaner - Screen 5, 1: Network Optimizer - Screen 4, 2: Game Mode - Screen 8)
@@ -283,8 +311,9 @@ fun MainAppRoot(
     var selectedPingServerId by remember {
         mutableStateOf(sharedPrefs.getString("selected_ping_server_id", "ultra_google_core") ?: "ultra_google_core")
     }
-    var isOptimizingNetwork by remember { mutableStateOf(false) }
-    var networkOptimizationDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        autoBoostEngine.setServerCategory(sharedPrefs.getString("selected_ping_category", "ultra") ?: "ultra")
+    }
 
     fun testSingleServer(target: PingServerTarget) {
         coroutineScope.launch {
@@ -571,7 +600,7 @@ fun MainAppRoot(
                                     )
                                     .clickable(enabled = !isOptimizing) {
                                         coroutineScope.launch {
-                                            autoBoostEngine.executeAutoBoost(isArabic)
+                                            autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                             refreshProcesses()
                                         }
                                     }
@@ -586,7 +615,7 @@ fun MainAppRoot(
                                     )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(
-                                        text = if (isArabic) "تسريع" else "BOOST",
+                                        text = if (isArabic) "تحضير" else "PREPARE",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Black,
                                         color = ObsidianBlack
@@ -665,13 +694,14 @@ fun MainAppRoot(
                                 isOptimizing = isOptimizing,
                                 optimizationStep = optimizationStep,
                                 lastBoostResult = lastBoostResult,
+                                showResultSummary = preparationOptions.showResults,
                                 games = games,
                                 isFloatingHudActive = isFloatingHudRunning,
                                 hudOpacity = hudOpacity,
                                 isArabic = isArabic,
                                 onTriggerAutoBoost = {
                                     coroutineScope.launch {
-                                        autoBoostEngine.executeAutoBoost(isArabic)
+                                        autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
                                         refreshProcesses()
                                     }
                                 },
@@ -682,9 +712,13 @@ fun MainAppRoot(
                                 },
                                 onLaunchGame = { game ->
                                     coroutineScope.launch {
-                                        autoBoostEngine.executeAutoBoost(isArabic)
-                                        sessionStorage.startRecording(game.appName, game.packageName)
-                                        onLaunchGameIntent(game)
+                                        if (preparationOptions.autoPrepare && game.isTurboEnabled) {
+                                            autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
+                                        }
+                                        if (onLaunchGameIntent(game)) {
+                                            sessionStorage.startRecording(game.appName, game.packageName)
+                                            if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
+                                        }
                                     }
                                 },
                                 onNavigateToSessions = { currentTab = ScreenTab.SESSIONS },
@@ -704,11 +738,16 @@ fun MainAppRoot(
                                 isArabic = isArabic,
                                 onLaunchGame = { game ->
                                     coroutineScope.launch {
-                                        autoBoostEngine.executeAutoBoost(isArabic)
-                                        sessionStorage.startRecording(game.appName, game.packageName)
-                                        onLaunchGameIntent(game)
+                                        if (preparationOptions.autoPrepare && game.isTurboEnabled) {
+                                            autoBoostEngine.executeAutoBoost(isArabic, preparationOptions.cleanCache, preparationOptions.checkNetwork)
+                                        }
+                                        if (onLaunchGameIntent(game)) {
+                                            sessionStorage.startRecording(game.appName, game.packageName)
+                                            if (preparationOptions.dndOnLaunch && gameModeController.hasAccess) setGameMode(true)
+                                        }
                                     }
                                 },
+                                onSaveProfile = { game -> sessionStorage.updateGameProfile(game) },
                                 onAddGameFromDevice = { game ->
                                     sessionStorage.addGameFromDevice(game)
                                 },
@@ -759,6 +798,7 @@ fun MainAppRoot(
                                     0 -> {
                                         ProcessCleanerScreen(
                                             processes = processList,
+                                            lastResult = lastBoostResult,
                                             isScanning = isScanningProcesses,
                                             isKilling = isKillingProcesses,
                                             usedRamMb = currentMetrics.ramUsedMb,
@@ -768,14 +808,17 @@ fun MainAppRoot(
                                             onKillAllHeavy = {
                                                 coroutineScope.launch {
                                                     isKillingProcesses = true
-                                                    autoBoostEngine.executeAutoBoost(isArabic)
-                                                    refreshProcesses()
-                                                    isKillingProcesses = false
+                                                    try {
+                                                        autoBoostEngine.executeAutoBoost(isArabic, cleanCache = true, checkNetwork = false)
+                                                        refreshProcesses()
+                                                    } finally {
+                                                        isKillingProcesses = false
+                                                    }
                                                 }
                                             },
                                             onKillSingle = { pkg ->
                                                 coroutineScope.launch {
-                                                    autoBoostEngine.killSingleProcess(pkg)
+                                                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
                                                     refreshProcesses()
                                                 }
                                             }
@@ -787,15 +830,13 @@ fun MainAppRoot(
                                             selectedServerId = selectedPingServerId,
                                             isTestingAll = isTestingNetwork,
                                             isTestingSingle = isTestingSingleServer,
-                                            isOptimizingNetwork = isOptimizingNetwork,
-                                            networkOptimizationDone = networkOptimizationDone,
-                                            overallJitterMs = 2,
                                             isArabic = isArabic,
                                             onSelectServer = { newId ->
                                                 selectedPingServerId = newId
                                                 sharedPrefs.edit().putString("selected_ping_server_id", newId).apply()
                                             },
                                             onSelectCategory = { cat ->
+                                                sharedPrefs.edit().putString("selected_ping_category", cat).apply()
                                                 autoBoostEngine.setServerCategory(cat)
                                                 val firstId = if (cat == "regional") "riyadh" else "ultra_google_core"
                                                 selectedPingServerId = firstId
@@ -805,25 +846,14 @@ fun MainAppRoot(
                                                 testSingleServer(server)
                                             },
                                             onTestAllServers = { testAllServers() },
-                                            onOptimizeNetworkRouting = {
-                                                coroutineScope.launch {
-                                                    isOptimizingNetwork = true
-                                                    autoBoostEngine.optimizeNetworkRouting()
-                                                    networkOptimizationDone = true
-                                                    isOptimizingNetwork = false
-                                                    testAllServers()
-                                                }
-                                            }
+
                                         )
                                     }
                                     else -> {
                                         GameModeScreen(
                                             isArabic = isArabic,
-                                            onActivate = {
-                                                coroutineScope.launch {
-                                                    autoBoostEngine.executeAutoBoost(isArabic)
-                                                }
-                                            }
+                                            isActivated = gameModeActive,
+                                            onActivate = { setGameMode(!gameModeActive) }
                                         )
                                     }
                                 }
@@ -856,7 +886,16 @@ fun MainAppRoot(
                         }
 
                         ScreenTab.SETTINGS -> {
-                            SettingsScreen(isArabic = isArabic)
+                            SettingsScreen(
+                                    isArabic = isArabic,
+                                    options = preparationOptions,
+                                    onOptionsChanged = {
+                                        preparationOptions = it
+                                        preferences.save(it)
+                                        if (it.dndOnLaunch && !gameModeController.hasAccess) openDndSettings()
+                                    },
+                                    onDndSettings = { openDndSettings() }
+                                )
                         }
                     }
                 }
@@ -1013,15 +1052,15 @@ fun AboutGlassBoostDialog(
             Column {
                 Text(
                     text = if (isArabic)
-                        "تطبيق GlassBoost لتسريع وتحسين أداء الألعاب، خفض البنج، مراقبة الإطارات (FPS)، وتنظيف الذاكرة بلوحة عائمة شفافة."
+                        "GlassBoost لتحضير جلسة اللعب وتنظيف كاش التطبيق وقياس RAM والحرارة واتصال TCP، مع شاشة عائمة اختيارية."
                     else
-                        "GlassBoost delivers esports-grade performance optimization, real socket ping tuning, live FPS & thermal HUD, and hardware unleash.",
+                        "GlassBoost prepares game sessions, cleans its own cache, and measures system RAM, battery temperature and public TCP connectivity, with an optional overlay.",
                     fontSize = 13.sp,
                     color = SlateBlueMuted
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Version 3.4 • Hybrid iOS Glassmorphic Design",
+                    text = "Version ${com.example.BuildConfig.VERSION_NAME}",
                     fontSize = 11.sp,
                     color = NeonCyan,
                     fontWeight = FontWeight.Bold

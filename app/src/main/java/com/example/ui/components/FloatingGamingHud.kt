@@ -93,17 +93,22 @@ import kotlinx.coroutines.launch
 fun FloatingGamingHud(
     fps: Int,
     pingMs: Int,
+    networkTarget: String = "",
     cpuPercent: Int,
-    ramUsedMb: Long = 3400L,
-    batteryTemp: Float = 33.5f,
+    isPreparing: Boolean = false,
+    cleanupBytes: Long? = null,
+    ramUsedMb: Long = 0L,
+    batteryTemp: Float = -1f,
     thermalSafetyThreshold: Float = 40.0f,
     opacity: Float = 0.85f,
-    cachedProcessesCount: Int = 4,
-    cachedMemoryMb: Long = 480L,
+    cachedProcessesCount: Int = 0,
+    cachedMemoryMb: Long = 0L,
     initialBubbleMode: Boolean = true,
     isArabic: Boolean = true,
     onSpeedBoost: () -> Unit,
     onClearCache: () -> Unit = onSpeedBoost,
+    onManageApps: () -> Unit = {},
+    onNetworkSettings: () -> Unit = {},
     onCoolDown: () -> Unit = onClearCache,
     onClose: () -> Unit,
     onOpacityChanged: (Float) -> Unit = {},
@@ -113,8 +118,6 @@ fun FloatingGamingHud(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isBubbleMode by remember { mutableStateOf(initialBubbleMode) }
-    var isBoosting by remember { mutableStateOf(false) }
-    var isClearingCache by remember { mutableStateOf(false) }
     var hudOpacitySlider by remember(opacity) { mutableStateOf(opacity) }
     var isThermalAlertDismissed by remember { mutableStateOf(false) }
 
@@ -139,6 +142,7 @@ fun FloatingGamingHud(
     }
 
     val pingColor = when {
+        pingMs < 0 -> SlateBlueMuted
         pingMs < 35 -> PerformanceGreen
         pingMs < 65 -> NeonCyan
         else -> PerformanceRed
@@ -327,6 +331,7 @@ fun FloatingGamingHud(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    Text(text = "TCP: ${networkTarget.ifEmpty { "—" }}", fontSize = 10.sp, color = SlateBlueMuted)
                     // Screen 9 & 6: Row of 4 Primary Floating Tiles (Boost, الشبكة, الحرارة, الذاكرة)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -336,17 +341,12 @@ fun FloatingGamingHud(
                         HudActionTile(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Bolt,
-                            label = "Boost",
-                            subText = if (isBoosting) "DONE" else "$fps FPS",
+                            label = if (isArabic) "كاش التطبيق" else "App cache",
+                            subText = if (isPreparing) "..." else (cleanupBytes?.let { "$it B" } ?: "—"),
                             isActive = true,
                             accentColor = NeonCyan,
                             onClick = {
-                                coroutineScope.launch {
-                                    isBoosting = true
-                                    onSpeedBoost()
-                                    delay(1200)
-                                    isBoosting = false
-                                }
+                                if (!isPreparing) onSpeedBoost()
                             }
                         )
 
@@ -356,9 +356,9 @@ fun FloatingGamingHud(
                             icon = Icons.Default.Wifi,
                             label = if (isArabic) "الشبكة" else "Network",
                             subText = if (pingMs >= 0) "${pingMs}ms" else "—",
-                            isActive = pingMs < 50,
+                            isActive = pingMs in 0..49,
                             accentColor = pingColor,
-                            onClick = { }
+                            onClick = onNetworkSettings
                         )
 
                         // Tile 3: الحرارة (Thermometer)
@@ -377,16 +377,11 @@ fun FloatingGamingHud(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Memory,
                             label = if (isArabic) "الذاكرة" else "RAM",
-                            subText = "$cpuPercent%",
+                            subText = "$ramUsedMb MB",
                             isActive = true,
                             accentColor = ElectricBlue,
                             onClick = {
-                                coroutineScope.launch {
-                                    isClearingCache = true
-                                    onClearCache()
-                                    delay(1000)
-                                    isClearingCache = false
-                                }
+                                onManageApps()
                             }
                         )
                     }
@@ -400,7 +395,7 @@ fun FloatingGamingHud(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = if (isArabic) "سطوع / شفافية" else "HUD Opacity",
+                            text = if (isArabic) "شفافية الشاشة العائمة" else "HUD Opacity",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = SlateBlueMuted

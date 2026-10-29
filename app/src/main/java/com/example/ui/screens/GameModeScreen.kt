@@ -54,14 +54,14 @@ import com.example.ui.theme.SlateBlueMuted
 /**
  * Screen 8 from GlassBoost UI Design System:
  * شاشة وضع الألعاب (Game Mode Screen) with large glowing controller emblem,
- * 3 core features (FPS boost, Latency lock, Network stabilization) and "تفعيل الآن" action.
+ * 3 core features (FPS boost, Latency lock, Network stabilization) and "تفعيل عدم الإزعاج" action.
  */
 @Composable
 fun GameModeScreen(
     isArabic: Boolean,
+    isActivated: Boolean,
     onActivate: () -> Unit
 ) {
-    var isActivated by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -109,7 +109,7 @@ fun GameModeScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = if (isArabic) "أقصى أداء لأفضل تجربة لعب" else "Maximum performance for the ultimate gaming experience",
+                text = if (isArabic) "تقليل المقاطعات باستخدام عدم الإزعاج؛ أوقفه من هنا بعد اللعب" else "Reduce interruptions with Do Not Disturb; end the mode here after playing",
                 fontSize = 13.sp,
                 color = SlateBlueMuted,
                 textAlign = TextAlign.Center
@@ -122,30 +122,30 @@ fun GameModeScreen(
                 // Perk 1: تحسين الإطارات
                 GameModePerkCard(
                     icon = Icons.Default.Speed,
-                    title = if (isArabic) "تحسين الإطارات (FPS Boost)" else "Frame Rate Stabilization",
-                    subtitle = if (isArabic) "تثبيت معدل الإطارات عند 60/90/120 FPS بدون هبوط" else "Locks frame rates up to 120 FPS with zero drops",
+                    title = if (isArabic) "عدم الإزعاج" else "Do Not Disturb",
+                    subtitle = if (isArabic) "يقلل الإشعارات وفق استثناءات الأولوية التي تضبطها في الهاتف" else "Follows your phone's priority notification exceptions",
                     isActive = isActivated
                 )
 
                 // Perk 2: تقليل اللاغ
                 GameModePerkCard(
                     icon = Icons.Default.Timer,
-                    title = if (isArabic) "تقليل اللاتج (Low Ping)" else "Ping & Lag Reduction",
-                    subtitle = if (isArabic) "خفض زمن الوصول بنسبة تصل إلى 40% عبر مسارات سريعة" else "Cuts round-trip latency by up to 40% via fastpath",
+                    title = if (isArabic) "إذن واضح وتحكم فعلي" else "Explicit permission and real control",
+                    subtitle = if (isArabic) "يطلب إذن عدم الإزعاج ويطبق وضع الأولوية عبر Android" else "Uses Android priority interruption control after you grant access",
                     isActive = isActivated
                 )
 
                 // Perk 3: تثبيت الشبكة
                 GameModePerkCard(
                     icon = Icons.Default.Wifi,
-                    title = if (isArabic) "تثبيت الشبكة (Network Lock)" else "Network Packet Lock",
-                    subtitle = if (isArabic) "حظر التقطيع وفقدان الحزم لمنع الـ Lag Spikes" else "Eliminates jitter and packet loss spikes during combat",
+                    title = if (isArabic) "إيقاف الوضع بعد اللعب" else "End after playing",
+                    subtitle = if (isArabic) "أوقفه هنا لاستعادة وضع المقاطعات السابق؛ لا يغيّر FPS أو مسار اللعبة" else "End here to restore interruption control; this does not alter game FPS or routes",
                     isActive = isActivated
                 )
             }
         }
 
-        // Action Button: تفعيل الآن (Screen 8)
+        // Action Button: تفعيل عدم الإزعاج (Screen 8)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -158,7 +158,6 @@ fun GameModeScreen(
                         Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
                 )
                 .clickable {
-                    isActivated = !isActivated
                     onActivate()
                 },
             contentAlignment = Alignment.Center
@@ -173,9 +172,9 @@ fun GameModeScreen(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (isActivated) {
-                        if (isArabic) "وضع الألعاب مفعّل بنجاح ✓" else "Game Mode Activated ✓"
+                        if (isArabic) "إيقاف وضع الألعاب" else "End game mode"
                     } else {
-                        if (isArabic) "تفعيل الآن" else "Activate Now"
+                        if (isArabic) "تفعيل عدم الإزعاج" else "Enable Do Not Disturb"
                     },
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
