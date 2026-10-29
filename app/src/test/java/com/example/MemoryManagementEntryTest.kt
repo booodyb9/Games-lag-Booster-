@@ -35,4 +35,31 @@ class MemoryManagementEntryTest {
         assertEquals(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS,
             shadowOf(context as android.app.Application).nextStartedActivity.action)
     }
+    @Test fun resultNamesTheMeasuredDestinationRatherThanAProviderConstant() {
+        compose.setContent {
+            MaterialTheme {
+                com.example.ui.components.BoostSuccessDialog(
+                    result = com.example.data.model.BoostResult(
+                        0, 0, emptyList(), 80, 90, 0,
+                        networkTarget = "ec2.eu-central-1.amazonaws.com:443"
+                    ), onDismiss = {}, isArabic = false
+                )
+            }
+        }
+        compose.onNodeWithText("ec2.eu-central-1.amazonaws.com:443", substring = true).assertExists()
+        compose.onNodeWithText("Cloudflare", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun cacheOnlyResultDoesNotPresentANetworkMeasurement() {
+        compose.setContent {
+            MaterialTheme {
+                com.example.ui.components.BoostSuccessDialog(
+                    result = com.example.data.model.BoostResult(
+                        0, 0, emptyList(), -1, -1, 0, networkTarget = ""
+                    ), onDismiss = {}, isArabic = false
+                )
+            }
+        }
+        compose.onNodeWithText("TCP", substring = true).assertDoesNotExist()
+    }
 }
