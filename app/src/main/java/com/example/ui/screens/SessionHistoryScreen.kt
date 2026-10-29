@@ -351,10 +351,22 @@ fun SessionHistoryScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    val recordedTargets = selectedSession.snapshots.filter { it.pingMs >= 0 }
+                        .map { it.networkTarget.ifEmpty { if (isArabic) "وجهة غير مسجلة" else "Unrecorded destination" } }
+                        .distinct()
+                    Text(
+                        text = when {
+                            recordedTargets.isEmpty() -> if (isArabic) "لا توجد عينة TCP مسجلة" else "No recorded TCP samples"
+                            recordedTargets.size == 1 -> "TCP: ${recordedTargets.first()}"
+                            else -> (if (isArabic) "متوسط TCP لوجهات متعددة: " else "TCP average across multiple destinations: ") +
+                                recordedTargets.joinToString(", ")
+                        },
+                        color = TextSecondary, fontSize = 11.sp
+                    )
                     // Metric Selection Tabs
                     val tabs = listOf(
                         Triple("FPS", if (isArabic) "الإطارات" else "FPS", PerformanceGreen),
-                        Triple("PING", if (isArabic) "البنج" else "Ping", GlassBlue),
+                        Triple("PING", "TCP", GlassBlue),
                         Triple("CPU", if (isArabic) "المعالج" else "CPU", RoyalGold),
                         Triple("GPU", if (isArabic) "الرسومات" else "GPU", PerformancePurple),
                         Triple("ALL", if (isArabic) "الكل" else "Overlay", Color.White)

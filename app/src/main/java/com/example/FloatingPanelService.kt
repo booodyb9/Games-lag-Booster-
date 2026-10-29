@@ -178,7 +178,7 @@ class FloatingPanelService : Service() {
                         opacity = opacityState,
                         onSpeedBoost = {
                             serviceScope.launch {
-                                autoBoostEngine?.executeAutoBoost(false)
+                                autoBoostEngine?.executeAutoBoost(false, cleanCache = true, checkNetwork = false)
                             }
                         },
                         onClearCache = {

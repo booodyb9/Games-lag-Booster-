@@ -440,11 +440,13 @@ fun BoostSuccessDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(if (isArabic) "كاش GlassBoost المحذوف: ${result.cacheDeletedBytes} بايت" else "GlassBoost cache deleted: ${result.cacheDeletedBytes} bytes")
-                Text(if (isArabic) "زيادة RAM المتاح المرصودة: ${result.ramFreedMb} MB" else "Observed available RAM increase: ${result.ramFreedMb} MB")
+                Text(if (isArabic) "RAM المتاح قبل/بعد: ${result.availableRamBeforeMb} / ${result.availableRamAfterMb} MB" else "Available RAM before/after: ${result.availableRamBeforeMb} / ${result.availableRamAfterMb} MB")
                 Text(if (isArabic) "تعذر حذف: ${result.cleanupFailures}" else "Failed deletions: ${result.cleanupFailures}")
                 val before = if (result.initialPingMs >= 0) "${result.initialPingMs}ms" else "—"
                 val after = if (result.optimizedPingMs >= 0) "${result.optimizedPingMs}ms" else "—"
-                Text(if (isArabic) "اتصال TCP إلى Cloudflare قبل/بعد: $before / $after" else "Cloudflare TCP before/after: $before / $after")
+                if (result.networkTarget.isNotEmpty()) {
+                    Text(if (isArabic) "TCP ${result.networkTarget} قبل/بعد: $before / $after" else "TCP ${result.networkTarget} before/after: $before / $after")
+                }
                 Text(if (isArabic) "هذه قياسات للنظام واتصال اختبار. لا تثبت تسريع اللعبة أو إنهاء تطبيقات، وقد تكون النتيجة صفرًا أو يسوء زمن الاتصال."
                     else "These are system and test-connection measurements, not proof of game acceleration or app termination. Cleanup can be zero and connection time can worsen.")
             }

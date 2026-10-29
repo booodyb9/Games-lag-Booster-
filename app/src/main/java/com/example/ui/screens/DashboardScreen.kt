@@ -258,7 +258,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (isArabic) "تحسين الأداء" else "Performance Boost",
+                            text = if (isArabic) "فحص الجهاز وتحضير اللعب" else "Device checks and preparation",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = SlateBlueMuted
@@ -293,7 +293,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isArabic) "جاري التحضير..." else "Boosting...",
+                                text = if (isArabic) "جاري التحضير..." else "Preparing...",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Black,
                                 color = ObsidianBlack

@@ -121,7 +121,7 @@ fun GameLauncherScreen(
                         color = PureWhite
                     )
                     Text(
-                        text = if (isArabic) "ألعابك المعززة بالأداء الفائق (${games.size})" else "Esports Boosted Games (${games.size})",
+                        text = if (isArabic) "ألعابك (${games.size})" else "Your games (${games.size})",
                         fontSize = 11.sp,
                         color = SlateBlueMuted
                     )
@@ -269,7 +269,7 @@ fun GameLauncherScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (isArabic) "لا توجد ألعاب مضافة حالياً" else "No boosted games added yet",
+                            text = if (isArabic) "لا توجد ألعاب مضافة حالياً" else "No games added yet",
                             color = TextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -622,7 +622,7 @@ fun GameLauncherScreen(
             onDismissRequest = { tuningGame = null },
             title = {
                 Text(
-                    text = if (isArabic) "إعدادات الرسوميات لـ ${game.appName}" else "GFX & FPS Tuning: ${game.appName}",
+                    text = if (isArabic) "ملف تفضيلات ${game.appName}" else "Reference profile: ${game.appName}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = RoyalGold

@@ -298,6 +298,7 @@ class GamingSessionStorage(private val context: Context) {
                         put("t", s.timestamp)
                         put("fps", s.fps)
                         put("ping", s.pingMs)
+                        put("networkTarget", s.networkTarget)
                         put("cpu", s.cpuUsagePercent)
                         put("gpu", s.gpuUsagePercent)
                         put("ram", s.ramUsedMb)
@@ -331,6 +332,7 @@ class GamingSessionStorage(private val context: Context) {
                             timestamp = s.optLong("t"),
                             fps = if (currentMeasurements) s.optInt("fps", -1) else -1,
                             pingMs = s.optInt("ping", -1),
+                            networkTarget = s.optString("networkTarget", ""),
                             cpuUsagePercent = s.optInt("cpu", -1),
                             gpuUsagePercent = s.optInt("gpu", -1),
                             ramUsedMb = s.optLong("ram", 0),
