@@ -374,7 +374,7 @@ fun DashboardScreen(
                 icon = Icons.Default.Wifi,
                 label = if (isArabic) "الشبكة والخوادم" else "Network & Ping",
                 mainValue = if (currentMetrics.pingMs >= 0) "${currentMetrics.pingMs}ms" else "—",
-                subtitle = if (isArabic) "اتصال Cloudflare TCP ➔" else "Cloudflare TCP connect ➔",
+                subtitle = "TCP ${currentMetrics.networkTarget.ifEmpty { "—" }} ➔",
                 isPositive = currentMetrics.pingMs in 0..49
             )
 
@@ -414,7 +414,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isArabic) "خوادم الألعاب واختبار Ping (8 مواقع)" else "Gaming Servers & Ping (8 Nodes)",
+                            text = if (isArabic) "وجهات فحص اتصال TCP" else "TCP test destinations",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = PureWhite
@@ -523,7 +523,7 @@ fun DashboardScreen(
                                 color = PureWhite
                             )
                             Text(
-                                text = if (isArabic) "عرض الـ FPS والبنج والتحكم أثناء اللعب" else "Live FPS & Ping overlay during gameplay",
+                                text = if (isArabic) "عرض RAM وحرارة البطارية وزمن TCP أثناء اللعب" else "System RAM, battery temperature and TCP timing overlay",
                                 fontSize = 11.sp,
                                 color = SlateBlueMuted
                             )

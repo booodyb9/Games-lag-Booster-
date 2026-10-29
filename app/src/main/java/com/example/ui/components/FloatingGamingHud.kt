@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 fun FloatingGamingHud(
     fps: Int,
     pingMs: Int,
+    networkTarget: String = "",
     cpuPercent: Int,
     isPreparing: Boolean = false,
     cleanupBytes: Long? = null,
@@ -106,6 +107,8 @@ fun FloatingGamingHud(
     isArabic: Boolean = true,
     onSpeedBoost: () -> Unit,
     onClearCache: () -> Unit = onSpeedBoost,
+    onManageApps: () -> Unit = {},
+    onNetworkSettings: () -> Unit = {},
     onCoolDown: () -> Unit = onClearCache,
     onClose: () -> Unit,
     onOpacityChanged: (Float) -> Unit = {},
@@ -328,6 +331,7 @@ fun FloatingGamingHud(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    Text(text = "TCP: ${networkTarget.ifEmpty { "—" }}", fontSize = 10.sp, color = SlateBlueMuted)
                     // Screen 9 & 6: Row of 4 Primary Floating Tiles (Boost, الشبكة, الحرارة, الذاكرة)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -337,7 +341,7 @@ fun FloatingGamingHud(
                         HudActionTile(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Bolt,
-                            label = if (isArabic) "تنظيف" else "Clean",
+                            label = if (isArabic) "كاش التطبيق" else "App cache",
                             subText = if (isPreparing) "..." else (cleanupBytes?.let { "$it B" } ?: "—"),
                             isActive = true,
                             accentColor = NeonCyan,
@@ -354,7 +358,7 @@ fun FloatingGamingHud(
                             subText = if (pingMs >= 0) "${pingMs}ms" else "—",
                             isActive = pingMs in 0..49,
                             accentColor = pingColor,
-                            onClick = { }
+                            onClick = onNetworkSettings
                         )
 
                         // Tile 3: الحرارة (Thermometer)
@@ -377,7 +381,7 @@ fun FloatingGamingHud(
                             isActive = true,
                             accentColor = ElectricBlue,
                             onClick = {
-                                if (!isPreparing) onClearCache()
+                                onManageApps()
                             }
                         )
                     }

@@ -15,7 +15,8 @@ data class PerformanceSnapshot(
     val ramTotalMb: Long,
     val batteryTemp: Float,
     val thermalState: String = "Unknown",
-    val batteryLevelPercent: Int = -1
+    val batteryLevelPercent: Int = -1,
+    val networkTarget: String = ""
 )
 
 /**
@@ -67,7 +68,10 @@ data class BoostResult(
     val networkJitterReducedMs: Int,
     val timestamp: Long = System.currentTimeMillis(),
     val cacheDeletedBytes: Long = 0L,
-    val cleanupFailures: Int = 0
+    val cleanupFailures: Int = 0,
+    val availableRamBeforeMb: Long = 0L,
+    val availableRamAfterMb: Long = 0L,
+    val networkTarget: String = ""
 )
 
 /**

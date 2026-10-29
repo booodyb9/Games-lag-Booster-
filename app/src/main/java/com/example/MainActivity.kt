@@ -314,8 +314,6 @@ fun MainAppRoot(
     LaunchedEffect(Unit) {
         autoBoostEngine.setServerCategory(sharedPrefs.getString("selected_ping_category", "ultra") ?: "ultra")
     }
-    var isOptimizingNetwork by remember { mutableStateOf(false) }
-    var networkOptimizationDone by remember { mutableStateOf(false) }
 
     fun testSingleServer(target: PingServerTarget) {
         coroutineScope.launch {
@@ -810,9 +808,12 @@ fun MainAppRoot(
                                             onKillAllHeavy = {
                                                 coroutineScope.launch {
                                                     isKillingProcesses = true
-                                                    autoBoostEngine.executeAutoBoost(isArabic, cleanCache = true, checkNetwork = preparationOptions.checkNetwork)
-                                                    refreshProcesses()
-                                                    isKillingProcesses = false
+                                                    try {
+                                                        autoBoostEngine.executeAutoBoost(isArabic, cleanCache = true, checkNetwork = false)
+                                                        refreshProcesses()
+                                                    } finally {
+                                                        isKillingProcesses = false
+                                                    }
                                                 }
                                             },
                                             onKillSingle = { pkg ->
@@ -829,8 +830,6 @@ fun MainAppRoot(
                                             selectedServerId = selectedPingServerId,
                                             isTestingAll = isTestingNetwork,
                                             isTestingSingle = isTestingSingleServer,
-                                            isOptimizingNetwork = isOptimizingNetwork,
-                                            networkOptimizationDone = networkOptimizationDone,
                                             isArabic = isArabic,
                                             onSelectServer = { newId ->
                                                 selectedPingServerId = newId
@@ -847,21 +846,7 @@ fun MainAppRoot(
                                                 testSingleServer(server)
                                             },
                                             onTestAllServers = { testAllServers() },
-                                            onOptimizeNetworkRouting = {
-                                                coroutineScope.launch {
-                                                    isOptimizingNetwork = true
-                                                    try {
-                                                    autoBoostEngine.optimizeNetworkRouting(
-                                                        sharedPrefs.getBoolean("dns_warmup", true),
-                                                        sharedPrefs.getBoolean("tcp_warmup", true)
-                                                    )
-                                                    networkOptimizationDone = true
-                                                    testAllServers()
-                                                    } finally {
-                                                        isOptimizingNetwork = false
-                                                    }
-                                                }
-                                            }
+
                                         )
                                     }
                                     else -> {

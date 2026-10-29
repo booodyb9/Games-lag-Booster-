@@ -131,11 +131,12 @@ class AutoBoostEngine(private val context: Context) {
             withContext(Dispatchers.IO) {
                 _optimizationStep.value = if (isArabic) "قياس الذاكرة وفحص اتصال TCP..." else "Measuring memory and TCP connectivity..."
                 val before = availableMemory()
-                val beforePing = if (checkNetwork) measureRealSocketLatency("1.1.1.1", 53) else -1
+                val target = selectedPingTarget(context)
+                val beforePing = if (checkNetwork) measureRealSocketLatency(target.host, target.port) else -1
                 _optimizationStep.value = if (isArabic) "حذف كاش GlassBoost القابل للحذف..." else "Deleting disposable GlassBoost cache..."
                 val (deleted, failures) = if (cleanCache) deleteOwnCache() else (0L to 0)
                 val after = availableMemory()
-                val afterPing = if (checkNetwork) measureRealSocketLatency("1.1.1.1", 53) else -1
+                val afterPing = if (checkNetwork) measureRealSocketLatency(target.host, target.port) else -1
                 BoostResult(
                     // Observed system available-memory increase, not proof of memory reclaimed.
                     ramFreedMb = ((after - before) / (1024 * 1024)).coerceAtLeast(0),
@@ -145,7 +146,10 @@ class AutoBoostEngine(private val context: Context) {
                     optimizedPingMs = afterPing,
                     networkJitterReducedMs = 0,
                     cacheDeletedBytes = deleted,
-                    cleanupFailures = failures
+                    cleanupFailures = failures,
+                    availableRamBeforeMb = before / (1024 * 1024),
+                    availableRamAfterMb = after / (1024 * 1024),
+                    networkTarget = if (checkNetwork) "${target.host}:${target.port}" else ""
                 ).also { _lastBoostResult.value = it }
             }
         } finally {
@@ -168,35 +172,7 @@ class AutoBoostEngine(private val context: Context) {
 
     suspend fun clearCachedBackgroundMemory(): Long = executeAutoBoost().ramFreedMb
 
-    /** Optional warm-up for this app only; each disabled option really skips its operation. */
-    suspend fun optimizeNetworkRouting(
-        resolveDns: Boolean = true,
-        warmTcp: Boolean = true
-    ): Pair<Int, Int> = withContext(Dispatchers.IO) {
-        val before = measureRealSocketLatency("1.1.1.1", 53)
-        if (resolveDns) coroutineScope {
-            listOf("dns.google", "cloudflare-dns.com", "store.steampowered.com", "epicgames.com").map { host ->
-                async(Dispatchers.IO) {
-                    try { InetAddress.getAllByName(host) } catch (_: java.net.UnknownHostException) { null }
-                }
-            }.awaitAll()
-        }
-        if (warmTcp) measureRealSocketLatency("1.1.1.1", 53)
-        before to measureRealSocketLatency("1.1.1.1", 53)
-    }
-
-    suspend fun measureRealSocketLatency(host: String, port: Int): Int = withContext(Dispatchers.IO) {
-        currentCoroutineContext().ensureActive()
-        val start = SystemClock.elapsedRealtime()
-        try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), 1500)
-                (SystemClock.elapsedRealtime() - start).toInt()
-            }
-        } catch (_: java.io.IOException) { -1 }
-        catch (_: SecurityException) { -1 }
-        catch (_: IllegalArgumentException) { -1 }
-    }
+    suspend fun measureRealSocketLatency(host: String, port: Int): Int = tcpConnectMillis(host, port)
 
     suspend fun measureDetailedServerPing(host: String, port: Int, probeCount: Int = 3): DetailedPingResult =
         withContext(Dispatchers.IO) {

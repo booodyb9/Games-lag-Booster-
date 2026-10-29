@@ -24,6 +24,7 @@ fun ProcessCleanerScreen(
     onKillAllHeavy: () -> Unit,
     onKillSingle: (String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text(if (isArabic) "الذاكرة وتنظيف الكاش" else "Memory and cache cleanup", color = PureWhite, style = MaterialTheme.typography.titleLarge) }
         item { Text(if (isArabic) "RAM المستخدم: $usedRamMb / $totalRamMb MB" else "System RAM used: $usedRamMb / $totalRamMb MB", color = TextSecondary) }
@@ -35,6 +36,16 @@ fun ProcessCleanerScreen(
             )
         }
         item {
+            OutlinedButton(onClick = {
+                com.example.engine.openDeviceSettings(context, android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
+            }) { Text(if (isArabic) "إدارة التطبيقات المثبتة" else "Manage installed apps") }
+            Text(
+                if (isArabic) "من معلومات التطبيق يمكنك إيقافه إجباريًا أو إدارة استخدامه في الخلفية. Android ينفّذ الإجراء؛ لا يتم إيقاف أي تطبيق تلقائيًا."
+                else "Use Android App Info to force-stop an app or manage background activity. No app is stopped automatically.",
+                color = TextSecondary
+            )
+        }
+        item {
             Button(enabled = !isKilling, onClick = onKillAllHeavy) {
                 Text(if (isKilling) (if (isArabic) "جارٍ القياس والتنظيف..." else "Measuring and cleaning...")
                     else (if (isArabic) "تنظيف كاش GlassBoost وقياس النتيجة" else "Clean GlassBoost cache and measure"))
@@ -42,8 +53,8 @@ fun ProcessCleanerScreen(
         }
         lastResult?.let { result ->
             item { Text(
-                if (isArabic) "كاش محذوف: ${result.cacheDeletedBytes} بايت • زيادة RAM المتاح المرصودة: ${result.ramFreedMb} MB • تعذر حذف: ${result.cleanupFailures}"
-                else "Cache deleted: ${result.cacheDeletedBytes} bytes • Observed available RAM increase: ${result.ramFreedMb} MB • Failed deletions: ${result.cleanupFailures}",
+                if (isArabic) "كاش التطبيق المحذوف: ${result.cacheDeletedBytes} بايت • RAM المتاح قبل: ${result.availableRamBeforeMb} MB، بعد: ${result.availableRamAfterMb} MB • تعذر حذف: ${result.cleanupFailures}"
+                else "App cache deleted: ${result.cacheDeletedBytes} bytes • Available RAM before: ${result.availableRamBeforeMb} MB, after: ${result.availableRamAfterMb} MB • Failed deletions: ${result.cleanupFailures}",
                 color = NeonCyan
             ) }
             item { Text(if (isArabic) "تغيّر RAM قد ينتج عن نشاط النظام ولا يثبت إنهاء تطبيقات." else "RAM changes can come from system activity and do not prove app termination.", color = TextSecondary) }

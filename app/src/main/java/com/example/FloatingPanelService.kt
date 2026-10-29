@@ -170,6 +170,7 @@ class FloatingPanelService : Service() {
                         isPreparing = preparing,
                         cleanupBytes = result?.cacheDeletedBytes,
                         pingMs = metricsState.pingMs,
+                        networkTarget = metricsState.networkTarget,
                         cpuPercent = metricsState.cpuUsagePercent,
                         ramUsedMb = metricsState.ramUsedMb,
                         batteryTemp = metricsState.batteryTemp,
@@ -184,6 +185,12 @@ class FloatingPanelService : Service() {
                             serviceScope.launch {
                                 autoBoostEngine?.clearCachedBackgroundMemory()
                             }
+                        },
+                        onManageApps = {
+                            com.example.engine.openDeviceSettings(this@FloatingPanelService, android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
+                        },
+                        onNetworkSettings = {
+                            com.example.engine.openDeviceSettings(this@FloatingPanelService, android.provider.Settings.ACTION_WIRELESS_SETTINGS)
                         },
                         onCoolDown = {
                             android.widget.Toast.makeText(this@FloatingPanelService,

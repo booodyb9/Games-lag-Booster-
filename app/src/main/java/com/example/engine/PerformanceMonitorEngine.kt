@@ -58,8 +58,17 @@ class PerformanceMonitorEngine(private val context: Context) {
         if (monitoringJob != null && monitoringJob?.isActive == true) return
 
         monitoringJob = scope.launch(Dispatchers.Default) {
+            var measuredTarget = ""
+            var nextProbeAt = 0L
+            var ping = -1
             while (isActive) {
-                val ping = measureSocketPing("1.1.1.1", 53)
+                val target = selectedPingTarget(context)
+                val address = "${target.host}:${target.port}"
+                if (address != measuredTarget || SystemClock.elapsedRealtime() >= nextProbeAt) {
+                    ping = tcpConnectMillis(target.host, target.port, 800)
+                    measuredTarget = address
+                    nextProbeAt = SystemClock.elapsedRealtime() + 5000
+                }
                 val (usedRam, totalRam) = getRamInfo()
                 val cpuUsage = readCpuUsage()
                 val gpuUsage = readGpuUsagePercent()
@@ -70,6 +79,7 @@ class PerformanceMonitorEngine(private val context: Context) {
                     // No public Android API exposes another app's game FPS.
                     fps = -1,
                     pingMs = ping,
+                    networkTarget = measuredTarget,
                     cpuUsagePercent = cpuUsage,
                     gpuUsagePercent = gpuUsage,
                     ramUsedMb = usedRam,
@@ -100,19 +110,6 @@ class PerformanceMonitorEngine(private val context: Context) {
         val availMb = memoryInfo.availMem / (1024 * 1024)
         val usedMb = max(0L, totalMb - availMb)
         return Pair(usedMb, totalMb)
-    }
-
-    private suspend fun measureSocketPing(host: String, port: Int): Int = withContext(Dispatchers.IO) {
-        val startTime = SystemClock.elapsedRealtime()
-        try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), 800)
-                val latency = (SystemClock.elapsedRealtime() - startTime).toInt()
-                latency
-            }
-        } catch (_: Exception) {
-            -1 // Unreachable/blocked is unavailable, never fabricate a ping.
-        }
     }
 
     private fun readCpuUsage(): Int {
